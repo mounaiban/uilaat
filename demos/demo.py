@@ -25,6 +25,7 @@ A small collection of tools for interactive use of the library
 
 import pdb
 import uilaat
+from timeit import timeit
 from warnings import filterwarnings
 
 def dump_page(plane, page):
