@@ -33,6 +33,10 @@ SCOPE_CHAR = 'C'
 SCOPE_STR = 'S'
 SCOPE_NOP = ''
 
+# TODO: Start using U+FFFD SUBPOINT instead. U+FFFD is the standard
+# Unicode replacement character intended as a point of insertion
+# (Unicode Standard, Section 2.13)
+
 SUBPOINT = '\uf820' # U+F820 -> SP
 iformat_default = SUBPOINT # nothing but a single SP
 insert_default = lambda c : iformat_default.replace(SUBPOINT, c)
@@ -97,8 +101,8 @@ def sfunc_from_covar(r_start, r_end, offset):
 def sfunc_from_dict(r_start, r_end, dic):
     """
     Create a Dictionary Substitution function.
-    These are used for substitutions where replacements for
-    targeted characters are specified in a dictionary.
+    These are used for substitutions where replacements for targeted
+    characters are specified in a dictionary.
 
     This function has character scope.
 
@@ -255,6 +259,172 @@ def sfunc_from_list(sf_list):
         return out
 
     return (fn_multi, SCOPE_STR,)
+
+class CodePointOffsetLookup:
+    """
+    A Unicode Code Point offset lookup that mimics a read-only dict.
+    Accepts code point values and returns a single character
+    corresponding to the offset code point.
+
+    This class is intended for use with str.translate().
+
+    Where:
+    cpol = CodePointOffsetLookup(a, b, off)
+
+    cpol[x] == chr(x + off)
+    """
+    def __init__(self, start, end, offset):
+
+        # validate start and end
+        if (isinstance(start, int) is False) or (isinstance(end, int) is False):
+            raise ValueError('both start and end must be int')
+        elif start < 0 or end < 0:
+            raise ValueError('start and end must be zero or positive')
+        elif start > end:
+            raise ValueError('start must come before end')
+        # validate offset
+        if isinstance(offset, int) is False:
+            raise ValueError('offset must be int')
+        elif start+offset < 0:
+            raise ValueError('offset must not cause negative values to return')
+        # assign operating values
+        self._start = start
+        self._end = end
+        self._offset = offset
+
+    def __getitem__(self, key):
+        # validate key
+        if isinstance(key, int) is False:
+            raise ValueError('only int keys are supported')
+        elif key > self._end:
+            raise LookupError('requested translation out of range')
+        elif key < self._start:
+            raise LookupError('requested translation out of range')
+
+        out = key + self._offset
+        if out < 0:
+            raise ValueError('negative code point suppressed')
+        elif out > 0x10FFFF:
+            raise LookupError('out of range code point suppressed')
+        else:
+            return chr(out)
+
+class DictWrapper:
+    """
+    Alternate dict wrapper class to investigate performance issues
+    with TranslationDict.
+
+    Results from preliminary tests suggest that this class was slower
+    than TranslationDict.
+    """
+    def __init__(self, d):
+        self._out_default = SUBPOINT
+        self._dict = d
+
+    def __getitem__(self, key):
+        if isinstance(key, int) is False:
+            raise ValueError('only int keys supported')
+        else:
+            key = chr(key)
+            out = self._dict.get(key, self._out_default)
+            return out.replace(SUBPOINT, key)
+
+    def reset_default(self):
+        if '' in self._dict:
+            self._out_default = self._dict['']
+        else:
+            self._out_default = SUBPOINT
+
+    @classmethod
+    def from_dict(self, d):
+        out = self()
+        if '' in d:
+            self._out_default = d['']
+        for k in d.keys():
+            out[ord(k)] = d[k]
+        return out
+
+
+class TranslationDict(dict):
+    """
+    Auto-Substitution Translation Dictionary
+
+    This is an extension on the dict class designed to be more in
+    line with UILAAT conventions. The key differences are:
+
+    * When a key is not found, a default value is returned
+      automatically without the need of the get() method
+
+    * The default output value is the one returned by the empty
+      string '' key
+
+    * Any output automatically inserts a copy of the key
+      (or a Unicode character of the key's value for int keys)
+      where a replacement character is found.
+
+    * One-character string keys are not allowed, but are
+      automatically converted to their Unicode code point value
+      with ord().
+
+    This class is for use with str.translate().
+
+    """
+    _super = None
+
+    def __init__(self, *args, **kwargs):
+        self._out_default = SUBPOINT
+        self._super = super()
+        self._super.__init__(*args, **kwargs)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, str):
+            if key == '':
+                self._out_default = value
+                self._super.__setitem__('', value)
+            elif len(key) == 1:
+                self._super.__setitem__(ord(key), value)
+
+    def __getitem__(self, key):
+        out = self._out_default
+        ins = key
+        try:
+            out = self._super.__getitem__(key)
+        except LookupError:
+            if isinstance(key, int) is True:
+                ins = chr(key)
+            else:
+                ins = key
+        finally:
+            if out is None:
+                return None
+            if SUBPOINT in out:
+                return out.replace(SUBPOINT, ins)
+            else:
+                return out
+
+    def reset_default(self):
+        if '' in self:
+            self._out_default = self.__getitem__('')
+        else:
+            self._out_default = SUBPOINT
+
+    def set_default(self, value=None):
+        self._out_default = value
+
+    @classmethod
+    def from_dict(self, d):
+        """
+        Create an Auto-Substitution Translation Dictionary from a regular
+        dict.
+        """
+        # PROTIP: This seemingly redundant deep copy procedure actually
+        # performs a str.maketrans()-like conversion. It can also correctly
+        # set up default output.
+        out = self()
+        for k in d.keys():
+            out[k] = d[k]
+        return out
+
 
 # Important Information
 # ---------------------
