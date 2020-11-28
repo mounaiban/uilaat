@@ -204,7 +204,7 @@ class DemoTextGenerator:
 aesthetic = DemoTextGenerator.from_args(33, 127, 65248)
 #
 # black_cat - add a Phaistos Disc cat before instances of phrase 'black cat'
-black_cat = DemoTextGenerator.from_args(r'black cat', '𐇬\uf820')
+black_cat = DemoTextGenerator.from_args(r'black cat', '𐇬\ufffc')
 #
 # bubbles - circled text, limited version of the Lunicode.js original
 bubbles_dict = {'0':'🄋', '.':'\u00a0⚬', ' ':'\u2003', '\n':'\n'}
@@ -222,9 +222,9 @@ black_cat_aesthetic = black_cat + aesthetic
 # squares - lazy port of Lunicode.js original
 squares_config = (
     32,
-    127,
+    687,
     {
-        '':'\uf820\u20de\u00a0',
+        '':'\ufffc\u20de\u00a0',
         ' ':' ',   # another way of excluding characters
         '\n':'\n', # from substitution
     },
@@ -236,7 +236,7 @@ witch_config = (
     None,
     None,
     {
-        '':'\uf820\u0353\u034f\u036f',
+        '':'\ufffc\u0353\u034f\u036f',
         'A':'🜂',
         'a':'🜂',
         ' ':' \u1dd1',
