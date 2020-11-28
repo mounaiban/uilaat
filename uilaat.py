@@ -33,11 +33,7 @@ SCOPE_CHAR = 'C'
 SCOPE_STR = 'S'
 SCOPE_NOP = ''
 
-# TODO: Start using U+FFFD SUBPOINT instead. U+FFFD is the standard
-# Unicode replacement character intended as a point of insertion
-# (Unicode Standard, Section 2.13)
-
-SUBPOINT = '\uf820' # U+F820 -> SP
+SUBPOINT = '\ufffc' # Unicode Object Replacement
 iformat_default = SUBPOINT # nothing but a single SP
 insert_default = lambda c : iformat_default.replace(SUBPOINT, c)
 
@@ -432,17 +428,16 @@ class TranslationDict(dict):
 # Substitution Points (SP's)
 # ==========================
 # SPs are intended to be a platform-agnostic method of including
-# text captured by a dictionary or regex match in the substitution
-# text of a find-and-replace.
+# characters matched by a dictionary key or regular expression into the
+# default translation output. They are indicated by U+FFFC.
+# (See also: Unicode Standard, Section 23.8)
 #
-# The points mark locations in a string where a copy of targeted
-# (matched) text will be inserted. SPs are implemented as a Unicode
-# Private Use Area code point with a value of U+F820.
-# 
-# In an example dictionary substitution:
+# In an example default substitution:
 #
-# 'J' -> U+F820 + U+2E04 -> 'J' + U+2E04
-#
+# dict: {'':'\ufffc\u2e04'}
+# code points: U+FFFC + U+2E04
+# input: 'J'
+# output: 'J' + U+2E04
 #
 # Function Format and Usage
 # =========================
