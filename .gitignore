@@ -1,3 +1,9 @@
+# Test Files
+tests/test_json_repo/*.json
+
+# Vim
+*.swp
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

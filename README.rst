@@ -7,17 +7,14 @@ What's This?
 ============
 UILAAT is a Unicode text processing library for working with decorative
 Unicode text, artistic communication devices produced by appropriation
-of graphemes between languages and superfluous use of combining characters.
-
-A typical decoration process involves substituting graphemes from one
-language with look-alikes from another. Sometimes, extra diacritics
-and enclosing characters are added to taste to complete the look.
+of graphemes between languages and superfluous use of non-word symbols and
+combining characters.
 
 UILAAT is yet another chapter of the history of an Internet tradition
 that resulted from the encounter between an ambitious goal, to 
 proliferate telegraphic typography support for every known (and unknown)
-written language system, and the human fascination with the foreign and
-exotic.
+written language system (along with their typographic ornaments), and
+the human fascination with the foreign and exotic.
 
 *UILAAT is free software, licensed to you under the Terms of the GNU
 General Public License, Version 3 or later. Please view the LICENSE file
@@ -103,14 +100,14 @@ firstly, it's **slow** and secondly, it's *incomplete*.
 
 Most Wanted Features
 ********************
+* **Preset Translation Databases**: a ready-to-use repository of
+  common substitutions would add to the out-of-box usefulness of
+  this library.
+
 * **Multi-Code Point Targets**: currently, only single code point
   characters can be targeted for substitution without the use of
-  computationally-expensive regular expressions. 
-
-* **Data Import and Export**: a means of loading substitutions from
-  external data sources is a wanted key feature of this library,
-  and would allow expanding the range of decorations without
-  modifying module files.
+  computationally-expensive regular expressions. Overcoming this
+  limitation would make things a lot easier.
 
 * **ＰＥＲＦＯＲＭＡＮＣＥ**: several bottlenecks are suspected in
   the handling of string-scoped functions in the main module,
