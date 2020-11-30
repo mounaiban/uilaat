@@ -27,6 +27,7 @@ A mini-library for working with decorative Unicode text
 
 import re
 from warnings import warn
+from json_repo import JSONRepo # TODO: Merge JSONRepo into this module
 
 # Supported Replacement Scopes
 SCOPE_CHAR = 'C'
@@ -34,6 +35,7 @@ SCOPE_STR = 'S'
 SCOPE_NOP = ''
 
 SUBPOINT = '\ufffc' # Unicode Object Replacement
+VERSION = '0.5'
 iformat_default = SUBPOINT # nothing but a single SP
 insert_default = lambda c : iformat_default.replace(SUBPOINT, c)
 
