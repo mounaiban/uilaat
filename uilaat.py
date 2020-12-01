@@ -307,41 +307,113 @@ class CodePointOffsetLookup:
         else:
             return chr(out)
 
-class DictWrapper:
+class RangeIndexedList:
     """
-    Alternate dict wrapper class to investigate performance issues
-    with TranslationDict.
+    A list which returns items according to the range which the key
+    falls into.
 
-    Results from preliminary tests suggest that this class was slower
-    than TranslationDict.
+    Where:
+    vs = ('\u2615', '\U00001f35c', '\U0001f356')
+    keys = (7,9,12,14,17,21)
+    L = (vs, keys)
+
+    7 <= x <= 9; L[x] == '\u2615'
+    12 <= x <= 14; L[x] == '\U0001f35c'
+    17 <= x <= 21; L[x] == '\U0001f356'
+
+    All other values of x raise a LookupError.
+
+    See __init__ for more options.
+
+    This class, when used with int keys, is intended for use with
+    str.translate().
+
     """
-    def __init__(self, d):
-        self._out_default = SUBPOINT
-        self._dict = d
+    DEFAULT_VALUE = True
+
+    def validate(self):
+        # TODO: This method will check if the list is well-formed.
+        #
+        # The range keys must be sorted from the smallest value to
+        # the largest. All keys must be of the same type.
+        raise NotImplementedError
+
+    def __init__(self, range_keys, values=None, **kwargs):
+        """
+        How to create a basic RangeIndexedList:
+        L = RangeIndexedList(keys, values)
+        
+        * keys is a sorted sequence (list, tuple), of items which
+          specifies the ranges; zero and even-indexed items specify
+          range starts and odd-indexed items specify range stops.
+          Range includes starts and stops.
+
+        * values is a sequence of items specifying items to be returned
+          as a result of a lookup. Each item corresponds to a range
+          defined in keys, thus values must contain exactly half the
+          number of items as keys.
+
+        Accepted keyword arguments:
+
+        * default - when values is None, this value will be returned
+           for all keys falling into any range.
+
+        * copy_key - (bool) if set to True, all instances of the Unicode
+           Replacement Character, U+FFFC, in the output will be replaced
+           by a single copy of the key.
+           If int keys are used, the ord() of the key is used as the
+           replacement instead.
+
+        """
+        if len(range_keys) & 0x01 != 0:
+            name = self.__class__.__name__
+            msg = '{} must contain an even number of keys'.format(name)
+            raise ValueError(msg)
+        if values is None:
+            default = kwargs.get('default', self.DEFAULT_VALUE)
+            values = (default,) * (len(range_keys)//2)
+        else:
+            if len(values) != len(range_keys)//2:
+                msg = 'number of values must be half the number of keys'
+                raise ValueError(msg)
+
+        self._copy_key = kwargs.get('copy_key', False)
+        self._range_keys = list(range_keys)
+        self._values = values
 
     def __getitem__(self, key):
-        if isinstance(key, int) is False:
-            raise ValueError('only int keys supported')
-        else:
-            key = chr(key)
-            out = self._dict.get(key, self._out_default)
-            return out.replace(SUBPOINT, key)
-
-    def reset_default(self):
-        if '' in self._dict:
-            self._out_default = self._dict['']
-        else:
-            self._out_default = SUBPOINT
-
-    @classmethod
-    def from_dict(self, d):
-        out = self()
-        if '' in d:
-            self._out_default = d['']
-        for k in d.keys():
-            out[ord(k)] = d[k]
-        return out
-
+        # This method performs a binary search to find a spot where
+        # key would have been placed if it were in the range list.
+        #
+        # If key is equal to any value in the range list, or ends up
+        # with an odd index/even position, then the key is in a range.
+        #
+        i_start = 0
+        i_end = len(self._range_keys)
+        i = i_end // 2
+        while i_end - i_start > 1:
+            i = i_start + ((i_end-i_start) // 2)
+            i_prev = i-1
+            key_low = self._range_keys[i_prev]
+            key_high = self._range_keys[i]
+            if key_low <= key <= key_high:
+                if key == key_low or key == key_high or i_prev & 0x01 == 0:
+                    out = self._values[i//2]
+                    if self._copy_key is False:
+                        return out 
+                    else:
+                        if ('\ufffc' in out) and (isinstance(key, int) is True):
+                            return out.replace('\ufffc', chr(key))
+                        else:
+                            return out
+                else:
+                    raise LookupError('key not in a range')
+            else:
+                if key < key_low:
+                    i_end = i
+                else:
+                    i_start = i
+        raise LookupError('key is before first range or past last range')
 
 class TranslationDict(dict):
     """
