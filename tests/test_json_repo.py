@@ -10,8 +10,7 @@ from os import path
 from unittest import TestCase
 from json import JSONEncoder
 
-from json_repo import JSONRepo, KEY_DB_NAME, SUFFIX_JSON
-from uilaat import SUBPOINT, VERSION
+from uilaat import JSONRepo, KEY_DB_NAME, SUFFIX_JSON, SUBPOINT, VERSION
 
 # Test Resources
 REPO_DIR = 'tests/test_json_repo'
