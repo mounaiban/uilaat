@@ -23,7 +23,7 @@ FANCY_F = '\uab35'
 FANCY_Xm = '\u1450\u1455'
 FANCY_Ym = '\u144c\ufe28'
 SAY_NO = SUBPOINT + '\u20e0'
-SAY_YES = SUBPOINT + '\u1f44f'
+SAY_YES = SUBPOINT + '\U0001f44f'
 
 je = JSONEncoder()
 
