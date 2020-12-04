@@ -21,12 +21,49 @@ UILAAT RangeIndexedList class Tests
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+# TODO: these tests are done with integer keys
+
 from unittest import TestCase
 from uilaat import RangeIndexedList
 
-class RangeIndexedListLookupTests(TestCase):
+class DoIndexTests(TestCase):
     """
-    Tests to verify correctness of RangeIndexedList
+    Tests to verify range key index lookups
+    Please see RangeIndexedList._do_index() for details
+
+    """
+    def test_doindex(self):
+        ks = (18,35,60,120)
+        ril = RangeIndexedList(ks)
+
+        i = ril._do_index(18)
+        self.assertEqual(i, (0,True,))
+        ii = ril._do_index(35)
+        self.assertEqual(ii, (1,True,))
+        iii = ril._do_index(60)
+        self.assertEqual(iii, (2,True,))
+        iiii = ril._do_index(120)
+        self.assertEqual(iiii, (3,True,))
+
+    def test_doindex_not_found(self):
+        # TODO: even means even index
+        ks = (18,35,60,120)
+        ril = RangeIndexedList(ks)
+
+        i = ril._do_index(17)
+        self.assertEqual(i, (0,False,))
+        ii = ril._do_index(34)
+        self.assertEqual(ii, (1,False,))
+        iii = ril._do_index(59)
+        self.assertEqual(iii, (2,False,))
+        iiii = ril._do_index(119)
+        self.assertEqual(iiii, (3,False,))
+        v = ril._do_index(121)
+        self.assertEqual(v, (4,False,))
+
+class GetitemTests(TestCase):
+    """
+    Tests to verify correctness of value lookups
 
     """
     def setUp(self):
@@ -64,7 +101,7 @@ class RangeIndexedListLookupTests(TestCase):
     def test_getitem_copykey(self):
         """
         Lookup with copy key to output option
-        
+
         """
         ks = self.range_keys_one
         SAY_YES = '\u2713'
@@ -125,4 +162,152 @@ class RangeIndexedListLookupTests(TestCase):
         with self.assertRaises(LookupError):
             k = ks[-1] + 1
             ril[k]
+
+class InsertTests(TestCase):
+    """
+    Tests to verify correctness of range insertions
+
+    """
+    # TODO: Add more input validation tests
+    def test_insert(self):
+        """
+        Insert new range between two ranges
+
+        """
+        ks = (5,10,30,35)
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        new_range = (15,25)
+        ril.insert(new_range, (42,))
+
+        rks_exp = [5,10,15,25,30,35]
+        self.assertEqual(ril._range_keys, rks_exp)
+        rvals_exp = [0,42,1]
+        self.assertEqual(ril._values, rvals_exp)
+
+    def test_insert_large_side(self):
+        """
+        Insert new range after last range
+
+        """
+        ks = (5,10,30,35)
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        new_range = (36,48)
+        ril.insert(new_range, (42,))
+
+        rks_exp = [5,10,30,35,36,48]
+        self.assertEqual(ril._range_keys, rks_exp)
+        rvals_exp = [0,1,42]
+        self.assertEqual(ril._values, rvals_exp)
+
+    def test_insert_small_side(self):
+        """
+        Insert new range before first range
+
+        """
+        ks = (5,10,30,35)
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        new_range = (0,3)
+        ril.insert(new_range, (42,))
+
+        rks_exp = [0,3,5,10,30,35]
+        self.assertEqual(ril._range_keys, rks_exp)
+        rvals_exp = [42,0,1]
+        self.assertEqual(ril._values, rvals_exp)
+
+    def test_insert_overlap_bridge(self):
+        """
+        Handle attempt to insert overlapping range (start & end in other ranges)
+
+        """
+        ks = [5,10,30,35]   # keep as a list, assertion needs matched types
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        with self.assertRaises(ValueError):
+            new_range = (4,31)
+            ril.insert(new_range)
+        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._values, vals)
+
+    def test_insert_overlap_small_end(self):
+        """
+        Handle attempt to insert overlapping range (start in another range)
+
+        """
+        ks = [5,10,30,35]   # keep as a list, assertion needs matched types
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        with self.assertRaises(ValueError):
+            new_range = (6,28)
+            ril.insert(new_range)
+        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._values, vals)
+
+    def test_insert_overlap_large_end(self):
+        """
+        Handle attempt to insert overlapping range (end in another range)
+
+        """
+        ks = [5,10,30,35]
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        with self.assertRaises(ValueError):
+            new_range = (12,36)
+            ril.insert(new_range)
+        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._values, vals)
+
+    def test_insert_overlap_whole_range(self):
+        """
+        Handle attempt to insert range wholly overlapping another
+
+        """
+        ks = [5,10,30,35]
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        with self.assertRaises(ValueError):
+            new_range = (29,36)
+            ril.insert(new_range)
+        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._values, vals)
+
+    def test_insert_overlap_whole_range_one(self):
+        """
+        Handle attempt to insert range wholly overlapping lone range
+
+        """
+        ks = [5,10]
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        with self.assertRaises(ValueError):
+            new_range = (4,12)
+            ril.insert(new_range)
+        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._values, vals)
+
+    def test_insert_overlap_within_range(self):
+        """
+        Handle attempt to insert range within another
+
+        """
+        ks = [5,10]
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        with self.assertRaises(ValueError):
+            new_range = (7,9)
+            ril.insert(new_range)
+        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._values, vals)
+
 

@@ -40,7 +40,7 @@ SUBPOINT = '\ufffc' # Unicode Object Replacement
 SUFFIX_JSON = '.json'
 VERSION = '0.5'
 iformat_default = SUBPOINT # nothing but a single SP
-insert_default = lambda c : iformat_default.replace(SUBPOINT, c)
+is_odd = lambda x : x%2 != 0
 
 # Please review the notes at the end of this file for an
 # understanding of the conventions used in this library.
@@ -64,12 +64,12 @@ def sfunc_from_covar(r_start, r_end, offset):
     subtraction.
 
     This function has character scope.
-    
+
     Arguments
     ---------
     * r_start - (int) the beginning of the code point range to which
         the replacement applies
-    
+
     * r_end - (int) the last code point in the code point range to
         which the replacement applies
 
@@ -112,7 +112,7 @@ def sfunc_from_dict(r_start, r_end, dic):
     * r_start - (int) the beginning of the code point range to which
         the replacement applies; if set to None, replacements will be
         performed on as many characters as possible.
-    
+
     * r_end - (int) the last code point in the code point range to
         which the replacement applies; if set to None, replacements will
         be performed on as many characters as possible.
@@ -210,13 +210,13 @@ def sfunc_from_list(sf_list):
     --------
     * RuntimeWarning - emitted when a function of an unsupported
         scope is encountered; such functions are skipped over.
-    
+
     Usage Notes
     -----------
     Please see the Function Format and Usage at the end of this file
     for information on the syntax and format of sf_list.
     """
-    
+
     subs = sf_list
     def fn_multi(s):
         nonlocal subs
@@ -318,51 +318,37 @@ class RangeIndexedList:
     A list which returns items according to the range which the key
     falls into.
 
-    Where:
-    vs = ('\u2615', '\U00001f35c', '\U0001f356')
-    keys = (7,9,12,14,17,21)
-    L = (vs, keys)
-
-    7 <= x <= 9; L[x] == '\u2615'
-    12 <= x <= 14; L[x] == '\U0001f35c'
-    17 <= x <= 21; L[x] == '\U0001f356'
-
-    All other values of x raise a LookupError.
-
-    See __init__ for more options.
-
     This class, when used with int keys, is intended for use with
     str.translate().
 
-    """
+   """
     DEFAULT_VALUE = True
-
-    def validate(self):
-        # TODO: This method will check if the list is well-formed.
-        #
-        # The range keys must be sorted from the smallest value to
-        # the largest. All keys must be of the same type.
-        raise NotImplementedError
 
     def __init__(self, range_keys, values=None, **kwargs):
         """
         How to create a basic RangeIndexedList:
         L = RangeIndexedList(keys, values)
 
-        * keys is a sorted sequence (list, tuple), of items which
-          specifies the ranges; zero and even-indexed items specify
+        * keys is a sorted sequence (list, tuple), of int's that
+          specifiy ranges; zero and even-indexed items specify
           range starts and odd-indexed items specify range stops.
-          Range includes starts and stops.
+          Ranges must not overlap.
 
         * values is a sequence of items specifying items to be returned
           as a result of a lookup. Each item corresponds to a range
-          defined in keys, thus values must contain exactly half the
-          number of items as keys.
+          pair in keys, values[0] is referenced to by all values betwen
+          keys[0] and keys[1], and so on. Thus, the length of values
+          must be half of the length of keys.
+
+        Please note that range_keys and values are not checked for
+        correctness. For a safer way of specifying ranges, create sequences
+        for range_keys using range_keys_from_ranges().
 
         Accepted keyword arguments:
 
         * default - when values is None, this value will be returned
-           for all keys falling into any range.
+           for all keys falling into any range, if not specified,
+           this argument is set to True.
 
         * copy_key - (bool) if set to True, all instances of the Unicode
            Replacement Character, U+FFFC, in the output will be replaced
@@ -371,55 +357,208 @@ class RangeIndexedList:
            replacement instead.
 
         """
-        if len(range_keys) & 0x01 != 0:
+        self._copy_key = kwargs.get('copy_key', False)
+        self._default = kwargs.get('default', self.DEFAULT_VALUE)
+        self._range_keys = list(range_keys)
+        self._values = None
+
+        if is_odd(len(range_keys)):
             name = self.__class__.__name__
             msg = '{} must contain an even number of keys'.format(name)
             raise ValueError(msg)
         if values is None:
-            default = kwargs.get('default', self.DEFAULT_VALUE)
-            values = (default,) * (len(range_keys)//2)
+            self._values = [self._default,] * (len(range_keys)//2)
         else:
             if len(values) != len(range_keys)//2:
                 msg = 'number of values must be half the number of keys'
                 raise ValueError(msg)
-
-        self._copy_key = kwargs.get('copy_key', False)
-        self._range_keys = list(range_keys)
-        self._values = values
+            self._values = list(values)
 
     def __getitem__(self, key):
-        # This method performs a binary search to find a spot where
-        # key would have been placed if it were in the range list.
+        """
+        Looking up items from a RangeIndexedList
+
+        Where:
+        vs = ('\u2615', '\U0001f35c', '\U0001f356') # three items
+        keys = (7,9,12,14,17,21) # three ranges
+        L = (vs, keys)
+
+        7 <= x <= 9; L[x] == '\u2615'
+        12 <= x <= 14; L[x] == '\U0001f35c'
+        17 <= x <= 21; L[x] == '\U0001f356'
+
+        All other values of x raise a LookupError.
+
+        See __init__ for more options.
+
+        """
+        i, found = self._do_index(key)
+        out = None
+        if found is False:
+            if i == 0:
+                raise LookupError('key smaller than smallest known key')
+            elif i == len(self._range_keys):
+                raise LookupError('key larger than largest known key')
+            elif not is_odd(i):
+                raise LookupError('key not in any range')
+        out = self._values[i//2]
+        if self._copy_key is False:
+            return out
+        else:
+            if ('\ufffc' in out) and (isinstance(key, int) is True):
+                return out.replace('\ufffc', chr(key))
+            else:
+                return out
+
+    def __repr__(self):
+        fmt = "{}({},copy_key={},default={},values={})"
+        name = self.__class__.__name__
+        return fmt.format(name, self._range_keys, self._copy_key, self._default,
+            self._values)
+
+    def insert(self, new_keys, new_values=None):
+        """
+        Inserts additional ranges into an existing range-indexed list.
+
+        * new_keys is an even-length list of int's, where zero and even
+          indexed-keys contain range starts, and odd indexed-keys contain
+          range stops.
+
+        * new_values is a list of values referenced by new_keys; every
+          value corresponds to a start-stop key pair in new_keys.
+
+        Where:
+        L._range_keys == [2,4,10,12]
+        L._values == [1,2]
+
+        Invoking:
+
+        L.insert((6,8,14,16,), new_values=(69, 420))
+
+        Will change L to:
+        L._range_keys == [2,4,6,8,10,12,14,16]
+        L._values == [1,69,2,420]
+
+        """
+        if new_values is None:
+            new_values = (self.DEFAULT_VALUE,) * (len(new_keys)//2)
+        if is_odd(len(new_keys)):
+            name = self.__class__.__name__
+            msg = "{} must contain an even number of keys".format(name)
+            raise ValueError(msg)
+        elif len(new_values) != len(new_keys)//2:
+            msg = "number of values must be half the number of keys"
+            raise ValueError(msg)
+
+        i = 0
+        for i_nk in range(1, len(new_keys), 2):
+            ks = new_keys[i_nk-1]    # range start key
+            ke = new_keys[i_nk]      # range end key
+            ist, ks_found = self._do_index(ks)
+            iend, ke_found = self._do_index(ke)
+
+            if ist != iend:
+                msg = "{}: new ranges must not overlap existing ranges".format(i)
+                raise ValueError(msg)
+            elif is_odd(ist) or ks_found or ke_found:
+                msg = "{}: cannot create new ranges within another".format(i)
+                raise ValueError(msg)
+            elif ke - ks < 1:
+                msg = "{}: ranges must have a length of one or more".format(i)
+                raise ValueError(msg)
+
+            self._range_keys.insert(ist, ke)
+            self._range_keys.insert(ist, ks)
+            self._values.insert(iend//2, new_values[i_nk//2])
+            i += 1
+
+    def remove(self, key):
+        # TODO: This method will remove a range referred to by key.
+        # Given the ranges (2,4),(6,8) and (10,12), when 6 < key < 8,
+        # (6,8) will be removed.
+        raise NotImplementedError('TODO: implement range removal method')
+
+    @classmethod
+    def range_keys_from_ranges(self, ranges):
+        """
+        Create a list of range keys from a list of range objects for
+        use with creating new range-indexed lists.
+        All range objects must have a start before a stop. Ranges are
+        checked for correctness as they are processed.
+
+        """
+        out = []
+        i = 0
+        last_stop = 0
+        for r in ranges:
+            if not isinstance(r, range):
+                raise TypeError('only range objects are accepted')
+            elif (r.start > r.stop) or (r.step != 1):
+                raise ValueError('use only forward-stepping ranges with step=1')
+            elif last_stop > r.start:
+                msg = "{}: start must be after last stop".format(i)
+                raise ValueError(msg)
+            elif len(r) < 1:
+                msg = "{}: zero-length ranges not allowed".format(i)
+                raise ValueError(msg)
+            else:
+                out.extend((r.start, r.stop))
+                last_stop = r.stop
+                i += 1
+        return out
+
+    def validate(self):
+        # TODO: This method will check if the list is well-formed.
         #
-        # If key is equal to any value in the range list, or ends up
-        # with an odd index/even position, then the key is in a range.
-        #
+        # The range keys must be sorted from the smallest value to
+        # the largest. All keys must be of the same type.
+        raise NotImplementedError('TODO: implement list validation')
+
+    def _do_index(self, key):
+        """
+        Return the key's int index or suggested index in self._range_keys,
+        along with a bool flag indicating if the key was in fact found
+        in a tuple like:
+
+        (index, found_flag)
+
+        If key is in self._range_keys, return the highest possible index.
+        If the key does not exist, return the lowest suggested index.
+        The suggested index is a recommended index to be used for
+        inserting non-existent keys while keeping self._range_keys sorted.
+
+        A zero index with a False indicates that the key is out of range
+        on the smaller side of the first range. A index past the highest
+        with a False indicates that the key that is out of range on the
+        greater side of the last range.
+
+        """
+        i_len = len(self._range_keys)
         i_start = 0
-        i_end = len(self._range_keys)
+        i_end = i_len - 1
+        # PROTIP: binary search
+        if key > self._range_keys[i_end]:
+            return (i_len, False)
         i = i_end // 2
         while i_end - i_start > 1:
             i = i_start + ((i_end-i_start) // 2)
-            i_prev = i-1
-            key_low = self._range_keys[i_prev]
-            key_high = self._range_keys[i]
-            if key_low <= key <= key_high:
-                if key == key_low or key == key_high or i_prev & 0x01 == 0:
-                    out = self._values[i//2]
-                    if self._copy_key is False:
-                        return out
-                    else:
-                        if ('\ufffc' in out) and (isinstance(key, int) is True):
-                            return out.replace('\ufffc', chr(key))
-                        else:
-                            return out
-                else:
-                    raise LookupError('key not in a range')
+            k_rk = self._range_keys[i]
+            if key == k_rk:
+                return (i, True)
+            if key <= k_rk:
+                i_end = i
             else:
-                if key < key_low:
-                    i_end = i
-                else:
-                    i_start = i
-        raise LookupError('key is before first range or past last range')
+                i_start = i
+
+        # if key was not found, determine the best index
+        if key > self._range_keys[i_start]:
+            return (i_end, (key == self._range_keys[i_end]))
+        else:
+            return (i_start, (key == self._range_keys[i_start]))
+            # PROTIP: the final equality check is required because the
+            # search loop above stops running as soon as i_end meets
+            # i_start, missing out on the chance to raise the key found
+            # flag.
 
 class TranslationDict(dict):
     """
