@@ -291,10 +291,19 @@ class CodePointOffsetLookup:
             raise ValueError('offset must be int')
         elif start+offset < 0:
             raise ValueError('offset must not cause negative values to return')
-        # assign operating values
+
         self._start = start
         self._end = end
         self._offset = offset
+
+    def __eq__(self, other):
+        """
+        Lookup objects are considered equal when their start, end and offset
+        are of equal value.
+
+        """
+        return (self._start == other._start) and (self._end == other._end)\
+            and (self._offset == other._offset)
 
     def __getitem__(self, key):
         # validate key
@@ -321,7 +330,7 @@ class RangeIndexedList:
     This class, when used with int keys, is intended for use with
     str.translate().
 
-   """
+    """
     DEFAULT_VALUE = True
 
     def __init__(self, range_keys, values=None, **kwargs):
@@ -337,8 +346,9 @@ class RangeIndexedList:
         * values is a sequence of items specifying items to be returned
           as a result of a lookup. Each item corresponds to a range
           pair in keys, values[0] is referenced to by all values betwen
-          keys[0] and keys[1], and so on. Thus, the length of values
-          must be half of the length of keys.
+          keys[0] and keys[1], and so on. If there is only one value
+          in values, this item will be shared between all ranges. Thus,
+          the length of values must be 1 or half of the length of keys.
 
         Please note that range_keys and values are not checked for
         correctness. For a safer way of specifying ranges, create sequences
@@ -370,9 +380,15 @@ class RangeIndexedList:
             self._values = [self._default,] * (len(range_keys)//2)
         else:
             if len(values) != len(range_keys)//2:
-                msg = 'number of values must be half the number of keys'
-                raise ValueError(msg)
+                if len(values) != 1:
+                    msg = 'number of values must be half the number of keys'
+                    raise ValueError(msg)
             self._values = list(values)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            raise TypeError('can only compare with other range-indexed lists')
+        return self.__dict__ == other.__dict__
 
     def __getitem__(self, key):
         """
@@ -401,7 +417,12 @@ class RangeIndexedList:
                 raise LookupError('key larger than largest known key')
             elif not is_odd(i):
                 raise LookupError('key not in any range')
-        out = self._values[i//2]
+        # PROTIP: if the key was not found, but an even index was
+        # suggested, then the key is considered inside a range.
+        if len(self._values) == 1:
+            out = self._values[0]
+        else:
+            out = self._values[i//2]
         if self._copy_key is False:
             return out
         else:
@@ -651,6 +672,10 @@ class JSONRepo:
     of translation files encoded in JSON format.
 
     """
+    CODE_OFFSET = '\uf811'
+    CODE_REGEX = '\uf812'
+    CODE_RANGE = '\uf813'
+
     def __init__(self, repo_dir, **kwargs):
         """
         Examples on creating a JSON Repository:
@@ -665,7 +690,7 @@ class JSONRepo:
         # Private variables
         self._repo_dir = repo_dir
         self._current_trans = {}
-        self._used_maketrans = False
+        self._used_maketrans = False  # TODO: remove this?
         self._tmp = []
         self._filename_memo = []
         self._fh = None
@@ -708,19 +733,111 @@ class JSONRepo:
         trans_tmp = {}
         if self.current_db_name is None:
             return trans_tmp
-
-        def get_val(v):
-            if isinstance(v, list) is True:
+        # Handler Functions
+        #
+        # Summary of Handler Function mini-API
+        # Arguments: (k, v)
+        #   k - translation key, v - translation value; k-v pairs are loaded
+        #   from the 'trans' object in a UILAAT JSON translation database
+        #
+        # JSONRepo Instance Variables: dmeta, maketrans, reverse
+        #   dmeta - 'meta' object of the translation database,
+        #   reverse - bool flag to indicate that the translation in the
+        #             database file should be reversed.
+        #   maketrans - bool flag to indicate output is for use with
+        #               str.translate(); this may have different effects on
+        #               different types of items, but always results in int
+        #               keys being applied.
+        #
+        # PROTIP: The instance variables are set in the main loop after the
+        #   last handler function.
+        #
+        def _prep_trans(k, v):
+            # String-to-string or int-to-string translation handler
+            v_out = SUBPOINT
+            if isinstance(v, (list, tuple)):
                 if n >= len(v):
-                    return v[0]
+                    v_out = v[0]
                 else:
-                    return v[n]
+                    v_out = v[n]
             else:
-                return v
+                v_out = v
+            if maketrans:
+                if isinstance(v, str):
+                    if len(k) == 1:
+                        k = ord(k)
+                    else:
+                        fmt = "{}: multi-char keys unsupported with maketrans"
+                        msg = fmt.format(dmeta[KEY_DB_NAME])
+                        warn(RuntimeWarning, 'msg')
+                    return
+            if reverse:
+                if k == '':
+                    return
+                else:
+                    trans_tmp[v_out] = k
+            else:
+                trans_tmp[k] = v_out
 
-        prep_key = lambda c: c
-        if maketrans is True:
-            prep_key = lambda c: ord(c)
+        def _prep_trans_ril(k, v):
+            # Code Point Range Translation handler
+            ks = self._str_to_keys(k)
+            iv = n
+            if reverse:
+                fmt = "{}: reverse range translations unsupported"
+                msg = fmt.format(dmeta[KEY_DB_NAME]) 
+                warn(RuntimeWarning, msg)
+                return
+            if isinstance(v[0], (list, tuple)):
+                # handle alternate translations
+                if n > len(ks):
+                    iv = 0
+                vs = v[iv]
+            else:
+                vs = v
+            ril = RangeIndexedList(ks, vs, copy_key=True)
+            # TODO: Perform RangeIndexedList validation
+            if '_ranges' not in trans_tmp:
+                trans_tmp['_ranges'] = []
+            trans_tmp['_ranges'].append(ril)
+
+        def _prep_trans_cpoff(k, v):
+            # Code Point Offset translation handler
+            ks = self._str_to_keys(k)
+            if reverse:
+                offset_tmp = v
+                start = offset_tmp + v
+                end = offset_tmp + v
+                offset = -offset_tmp
+            else:
+                start = int(ks[0])
+                end = int(ks[1])
+                offset = v
+            cpoff = CodePointOffsetLookup(start, end, offset)
+            if '_offsets' not in trans_tmp:
+                trans_tmp['_offsets'] = []
+            trans_tmp['_offsets'].append(cpoff)
+
+        def _prep_trans_regex(k, v):
+            # Regex handler
+            if reverse:
+                fmt = "{}: reverse regex translations unsupported"
+                msg = fmt.format(dmeta[KEY_DB_NAME]) 
+                warn(RuntimeWarning, msg)
+                return
+            rege = re.compile(k[1])
+            out = ('rege', v)
+            if '_regexes' not in trans_tmp:
+                trans_tmp['_regexes'] = []
+            trans_tmp['_regexes'].append(out)
+
+        handlers_k = {
+            self.CODE_OFFSET: _prep_trans_cpoff,
+            self.CODE_RANGE: _prep_trans_ril,
+            self.CODE_REGEX: _prep_trans_regex,
+        }
+        ### End of Helper Functions ###
+
         if n is None:
             if self._current_trans != {}:
                 return self._current_trans
@@ -730,19 +847,13 @@ class JSONRepo:
             dtrans = d.get('trans', {})
             reverse = dmeta.get('reverse', False)
             for k in dtrans.keys():
-                val = get_val(dtrans[k])
-                if reverse is True:
-                    # ignore default translation when reversing
-                    if k == '':
-                        continue
-                    if (len(val)>1) and (maketrans is True):
-                        fmt = '{}: multi-char keys unsupported with maketrans'
-                        msg = fmt.format(dmeta[KEY_DB_NAME])
-                        warn(RuntimeWarning, 'msg')
-                        continue
-                    trans_tmp[prep_key(val)] = k
+                if k == '':
+                    handler = _prep_trans
+                elif isinstance(k, str):
+                    handler = handlers_k.get(k[0], _prep_trans)
                 else:
-                    trans_tmp[prep_key(k)] = val
+                    handler = _prep_trans
+                handler(k, dtrans[k])
         self._current_trans = trans_tmp
         return trans_tmp
 
@@ -761,6 +872,7 @@ class JSONRepo:
         loading process.
 
         """
+        self._current_trans.clear()
         self._tmp.clear()
         self._filename_memo.clear()
         self.current_db_name = None
@@ -817,8 +929,12 @@ class JSONRepo:
         # from the first.
         raise NotImplementedError
 
-
-
+    def _str_to_keys(self, s):
+        # Convert specially-formatted string into key list for creating
+        # CodePointOffsetLookup and RangeIndexedList objects.
+        if isinstance(s, str):
+            if ord(s[0]) & 0xF800 == 0xF800:
+                return s.split(' ')[1:]
 
 # Important Information
 # ---------------------
@@ -839,6 +955,10 @@ class JSONRepo:
 #
 # Function Format and Usage
 # =========================
+# NOTE: The current Functions (sfunc_from_covar, sfunc_from_dict,
+# sfunc_from_re, sfunc_from_list) are being *deprecated* for upcoming
+# functions that more closely resemble functional programming.
+#
 # Substitution functions accept a single argument like: f(x)
 # The scope of a function determines what is accepted for the argument.
 # There are currently only three scopes:
@@ -863,4 +983,3 @@ class JSONRepo:
 #
 # Functions are applied in the same order as they appear in the list.
 # 
-

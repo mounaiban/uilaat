@@ -10,7 +10,8 @@ from os import path
 from unittest import TestCase
 from json import JSONEncoder
 
-from uilaat import JSONRepo, KEY_DB_NAME, SUFFIX_JSON, SUBPOINT, VERSION
+from uilaat import JSONRepo, CodePointOffsetLookup, RangeIndexedList
+from uilaat import KEY_DB_NAME, SUFFIX_JSON, SUBPOINT, VERSION
 
 # Test Resources
 REPO_DIR = 'tests/test_json_repo'
@@ -57,14 +58,14 @@ class JSONRepoLoadDbTests(TestCase):
     """
     Tests to verify database-loading behaviours
 
+    The assertions in this suite generally verify loading behaviour by
+    means of the number of databases loaded, the correctness of database
+    names and the correctness of the translations retrieved.
+
     """
     def test_load(self):
         """
         Load database with inclusions
-        
-        The assertions in this suite generally verify loading behaviour by
-        means of the number of databases loaded, the correctness of database
-        names and the correctness of the translations retrieved.
 
         """
         dbs = {
@@ -580,4 +581,114 @@ class JSONRepoGetTransTests(TestCase):
         self.assertEqual(jr.get_trans(n=0), {'1': FANCY_ONE_a})
         self.assertEqual(jr.get_trans(n=1), {'1': FANCY_ONE_b})
         self.assertEqual(jr.get_trans(n=2), {'1': FANCY_ONE_c})
+
+    def test_get_trans_offset(self):
+        """
+        Offset translations with inclusion
+
+        """
+        trans_targets = (
+            JSONRepo.CODE_OFFSET+' 33 127',
+            JSONRepo.CODE_OFFSET+' 65 90',
+            JSONRepo.CODE_OFFSET+' 65 90',
+            # mind the spaces...  ^
+        )
+        trans_offs = (65248,119473,119951)
+        dbs = {
+            'test_get_trans_offset_first': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Offset trans. loading test with inclusion',
+                    },
+                },
+                'trans': {trans_targets[0]: trans_offs[0],},
+            },
+            'test_get_trans_offset_second': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Offset trans. loading test with inclusion',
+                    },
+                },
+                'trans': {trans_targets[1]: trans_offs[1],},
+                'trans-include': ['test_get_trans_offset_first',],
+            },
+            'test_get_trans_offset_last': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Offset trans. loading test with inclusion',
+                    },
+                },
+                'trans': {trans_targets[2]: trans_offs[2],},
+                'trans-include': ['test_get_trans_offset_second',],
+            }
+        }
+        dbs_keys = tuple(dbs.keys())
+        for k in dbs_keys:
+            write_json_file(k, dbs[k])
+        jr = JSONRepo(REPO_DIR)
+        jr.load_db('test_get_trans_offset_last')
+        trans_dict = jr.get_trans()
+
+        for i in range(len(trans_targets)):
+            args_se = [int(i) for i in jr._str_to_keys(trans_targets[i])]
+            args_all = args_se + [trans_offs[i],]
+            expected = CodePointOffsetLookup(*args_all)
+            loaded = trans_dict['_offsets'][i]
+            with self.subTest(db=dbs_keys[i]):
+                self.assertEqual(loaded, expected)
+
+    def test_get_trans_range(self):
+        """
+        Range-Indexed translations with inclusion
+
+        """
+        trans_targets = (
+            JSONRepo.CODE_RANGE+' 32 676 1024 1279',
+            JSONRepo.CODE_RANGE+' 13312 55203',
+            # mind the spaces... ^
+        )
+        trans_repls = (['\ufffc\u20de\u00a0',],['\ufffc\u20de\u00a0',],)
+        dbs = {
+            'test_get_trans_range_first': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Range trans. loading test with inclusion',
+                    },
+                },
+                'trans': {trans_targets[0]: trans_repls[0],},
+            },
+            'test_get_trans_range_last': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Range trans. loading test with inclusion',
+                    },
+                },
+                'trans': {trans_targets[1]: trans_repls[1],},
+                'trans-include': ['test_get_trans_range_first',],
+            }
+        }
+        dbs_keys = tuple(dbs.keys())
+        for k in dbs_keys:
+            write_json_file(k, dbs[k])
+        jr = JSONRepo(REPO_DIR)
+        jr.load_db('test_get_trans_range_last')
+        trans_dict = jr.get_trans()
+
+        for i in range(len(trans_targets)):
+            ks = jr._str_to_keys(trans_targets[i])
+            vals = trans_repls[i]
+            ri_expected = RangeIndexedList(ks, vals, copy_key=True)
+            ri = trans_dict['_ranges'][i]
+            with self.subTest(db=dbs_keys[i]):
+                self.assertEqual(ri, ri_expected)
 

@@ -46,7 +46,6 @@ class DoIndexTests(TestCase):
         self.assertEqual(iiii, (3,True,))
 
     def test_doindex_not_found(self):
-        # TODO: even means even index
         ks = (18,35,60,120)
         ril = RangeIndexedList(ks)
 
@@ -60,6 +59,61 @@ class DoIndexTests(TestCase):
         self.assertEqual(iiii, (3,False,))
         v = ril._do_index(121)
         self.assertEqual(v, (4,False,))
+
+class EqTests(TestCase):
+    """
+    Tests to verify correctness of the equality operator
+
+    """
+    def test_eq(self):
+        """
+        Equality between RILs with default options
+
+        """
+        ks = (18,35,60,120)
+        vals = ('c1','c2')
+        ril_a = RangeIndexedList(ks, vals)
+        ril_b = RangeIndexedList(ks, vals)
+
+        self.assertEqual(ril_a, ril_b)
+
+    def test_eq_kwargs(self):
+        """
+        Equality between RILs with options set
+
+        """
+        ks = (18,35,60,120)
+        vals = ('c1','c2')
+        ril_a = RangeIndexedList(ks, vals, copy_key=True,)
+        ril_b = RangeIndexedList(ks, vals, copy_key=True,)
+
+        self.assertEqual(ril_a, ril_b)
+
+    def test_eq_not_equal_keys(self):
+        """
+        Equality between RILs with mismatched keys
+
+        """
+        ks_a = (18,35,60,120)
+        ks_b = (2,3,4,5)
+        vals = ('c1','c2')
+        ril_a = RangeIndexedList(ks_a, vals)
+        ril_b = RangeIndexedList(ks_b, vals)
+
+        self.assertNotEqual(ril_a, ril_b)
+
+    def test_eq_not_equal_vals(self):
+        """
+        Equality between RILs with mismatched values
+
+        """
+        ks = (18,35,60,120)
+        vals_a = ('c1','c2')
+        vals_b = ('ad1','ad2')
+        ril_a = RangeIndexedList(ks, vals_a)
+        ril_b = RangeIndexedList(ks, vals_b)
+
+        self.assertNotEqual(ril_a, ril_b)
 
 class GetitemTests(TestCase):
     """
@@ -133,7 +187,21 @@ class GetitemTests(TestCase):
                 with self.assertRaises(LookupError):
                     ril[k]
 
-    def test_getitem_s_b2b(self):
+    def test_getitem_shared(self):
+        """
+        Lookups on multiple ranges with one value
+
+        """
+        ks = self.range_keys
+        vals = ('same',)
+        ril = RangeIndexedList(ks, vals)
+
+        ks_test = (5,6,9,10,15,16,19,20,25,26,29,30)
+        for k in ks_test:
+            with self.subTest(k=k):
+                self.assertEqual(ril[k], vals[0])
+
+    def test_getitem_short_b2b(self):
         """
         Lookups on short, back-to-back ranges
 
@@ -147,7 +215,7 @@ class GetitemTests(TestCase):
             with self.subTest(k=k):
                 self.assertEqual(ril[k], vals[i//2])
 
-    def test_getitem_s_b2b_lookuperror(self):
+    def test_getitem_short_b2b_lookuperror(self):
         """
         Out-of-range index handling for short, back-to-back ranges
 
