@@ -32,7 +32,7 @@ dict_plain = {'a':FANCY_A, 'b':FANCY_Bm,}
 dict_with_default = { 'a':FANCY_A, 'b':FANCY_Bm, '':DEFAULT_OUT,}
 dict_with_none_default = { 'a':FANCY_A, 'b':FANCY_Bm, '':None,}
 
-class TranslationDictGetitemTests(TestCase):
+class GetitemTests(TestCase):
     """
     Tests to verify correctness of lookup output of TranslationDict
     """
@@ -45,7 +45,7 @@ class TranslationDictGetitemTests(TestCase):
         tdict_a = self.clsc.from_dict(dict_plain)   # tdict => test dict
         out_single = tdict_a[ord('a')]
         out_multi = tdict_a[ord('b')]
-        
+
         self.assertEqual(out_single, FANCY_A)
         self.assertEqual(out_multi, FANCY_Bm)
 
@@ -56,7 +56,7 @@ class TranslationDictGetitemTests(TestCase):
         tdict_a = self.clsc.from_dict(dict_plain)
         out_nf = tdict_a[ord('\uffff')]
         self.assertEqual(out_nf, '\uffff')
-        # PROTIP: Unicode non-characters can be used for testing 
+        # PROTIP: Unicode non-characters can be used for testing
 
     def test_getitem_default(self):
         """

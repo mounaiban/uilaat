@@ -54,7 +54,7 @@ def write_json_file(name, dic, repo_dir=REPO_DIR):
         if fh is not None:
             fh.close()
 
-class JSONRepoLoadDbTests(TestCase):
+class LoadDbTests(TestCase):
     """
     Tests to verify database-loading behaviours
 
@@ -287,9 +287,9 @@ class JSONRepoLoadDbTests(TestCase):
         self.assertEqual(len(jr._tmp), len(dbs_keys))
 
 
-class JSONRepoGetTransTests(TestCase):
+class GetTransTests(TestCase):
     """
-    Tests to verify translation dictionary-building routines 
+    Tests to verify translation dictionary-building routines
 
     """
     # TODO: Wanted Tests:
@@ -299,6 +299,7 @@ class JSONRepoGetTransTests(TestCase):
     def test_get_trans(self):
         """
         Get single-database translations
+
         """
         name = 'test_get_trans'
         db = {
@@ -317,7 +318,49 @@ class JSONRepoGetTransTests(TestCase):
 
         # assertions
         trans_expected = db['trans']
-        trans = jr.get_trans() 
+        trans = jr.get_trans()
+        self.assertEqual(trans, trans_expected)
+
+    def test_get_trans_db_switch(self):
+        """
+        Switch between translations
+        Previously loaded database should be unloaded completely
+
+        """
+        dbs = {
+            'test_get_trans_switch_a': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Database switching test',
+                    },
+                },
+                'trans': {'': SAY_YES,},
+            },
+            'test_get_trans_switch_b': {
+                'meta': {
+                    'reverse': False,
+                    'version': VERSION,
+                    'desc': {
+                        'en-au': 'Database switching test',
+                    },
+                },
+                'trans': {'1': FANCY_ONE_a,},
+            },
+        }
+        dbs_keys = tuple(dbs.keys())
+        for k in dbs_keys:
+            write_json_file(k, dbs[k])
+        jr = JSONRepo(REPO_DIR)
+
+        jr.load_db('test_get_trans_switch_a')
+        trans = jr.get_trans()
+        jr.load_db('test_get_trans_switch_b')
+        trans = jr.get_trans()
+
+        # assertions
+        trans_expected = {'1':FANCY_ONE_a,}
         self.assertEqual(trans, trans_expected)
 
     def test_get_trans_multi(self):
@@ -380,7 +423,7 @@ class JSONRepoGetTransTests(TestCase):
 
         # assertions
         trans_expected = {'y':FANCY_Ym, '':SAY_YES, 'f':FANCY_F, 'e':FANCY_E}
-        trans = jr.get_trans() 
+        trans = jr.get_trans()
         self.assertEqual(trans, trans_expected)
 
     def test_get_trans_override(self):
@@ -408,7 +451,7 @@ class JSONRepoGetTransTests(TestCase):
                     },
                 },
                 'trans-include': ['test_get_trans_override_first_a'],
-                'trans': {'1': FANCY_ONE_b,}, 
+                'trans': {'1': FANCY_ONE_b,},
             },
             'test_get_trans_override_first_b': {
                 'meta': {
@@ -443,7 +486,7 @@ class JSONRepoGetTransTests(TestCase):
 
         # assertions
         trans_expected = {'x':FANCY_Xm, '1':FANCY_ONE_c, '':SAY_YES}
-        trans = jr.get_trans() 
+        trans = jr.get_trans()
         self.assertEqual(trans, trans_expected)
 
     def test_get_trans_reverse(self):
@@ -471,7 +514,7 @@ class JSONRepoGetTransTests(TestCase):
 
         # assertions
         trans_expected = {FANCY_E: 'e', FANCY_F: 'f'}
-        trans = jr.get_trans() 
+        trans = jr.get_trans()
         self.assertEqual(trans, trans_expected)
 
     def test_get_trans_default_reverse(self):
@@ -498,7 +541,7 @@ class JSONRepoGetTransTests(TestCase):
 
         # assertions
         trans_expected = {FANCY_E: 'e'}
-        trans = jr.get_trans() 
+        trans = jr.get_trans()
         self.assertEqual(trans, trans_expected)
 
     def test_get_trans_alts(self):
@@ -529,7 +572,7 @@ class JSONRepoGetTransTests(TestCase):
 
     def test_get_trans_alts_oor(self):
         """
-        Out-of-range handling when getting alternative translations 
+        Out-of-range handling when getting alternative translations
 
         """
         name = 'test_get_trans_alts_oor'
