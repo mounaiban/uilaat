@@ -298,8 +298,10 @@ class CodePointOffsetLookup:
 
     def __eq__(self, other):
         """
-        Lookup objects are considered equal when their start, end and offset
-        are of equal value.
+        Given two CPOL's C1 and C2:
+
+        C1 == C2 is True when when their start, end and offset are of
+        equal value.
 
         """
         return (self._start == other._start) and (self._end == other._end)\
@@ -333,12 +335,12 @@ class RangeIndexedList:
     """
     DEFAULT_VALUE = True
 
-    def __init__(self, range_keys, values=None, **kwargs):
+    def __init__(self, bounds, values=None, **kwargs):
         """
         How to create a basic RangeIndexedList:
         L = RangeIndexedList(keys, values)
 
-        * keys is a sorted sequence (list, tuple), of int's that
+        * bounds is a sorted sequence (list, tuple), of int's that
           specifiy ranges; zero and even-indexed items specify
           range starts and odd-indexed items specify range stops.
           Ranges must not overlap.
@@ -348,11 +350,8 @@ class RangeIndexedList:
           pair in keys, values[0] is referenced to by all values betwen
           keys[0] and keys[1], and so on. If there is only one value
           in values, this item will be shared between all ranges. Thus,
-          the length of values must be 1 or half of the length of keys.
-
-        Please note that range_keys and values are not checked for
-        correctness. For a safer way of specifying ranges, create sequences
-        for range_keys using range_keys_from_ranges().
+          there must be exactly one value, or half as many values as
+          bounds.
 
         Accepted keyword arguments:
 
@@ -369,30 +368,33 @@ class RangeIndexedList:
         """
         self._copy_key = kwargs.get('copy_key', False)
         self._default = kwargs.get('default', self.DEFAULT_VALUE)
-        self._range_keys = list(range_keys)
+        self._bounds = list(bounds)
         self._values = None
+        self._validate = kwargs.get('validate', True)
 
-        if is_odd(len(range_keys)):
-            name = self.__class__.__name__
-            msg = '{} must contain an even number of keys'.format(name)
-            raise ValueError(msg)
         if values is None:
-            self._values = [self._default,] * (len(range_keys)//2)
+            self._values = [self._default,] * (len(bounds)//2)
         else:
-            if len(values) != len(range_keys)//2:
-                if len(values) != 1:
-                    msg = 'number of values must be half the number of keys'
-                    raise ValueError(msg)
             self._values = list(values)
 
+        if self._validate:
+            self.validate(bounds, values)
+
     def __eq__(self, other):
+        """
+        Given two RILs, L1 and L2,
+
+        L1 == L2 is True when both RILs have the same exact bounds, values
+        and options.
+
+        """
         if not isinstance(other, type(self)):
             raise TypeError('can only compare with other range-indexed lists')
         return self.__dict__ == other.__dict__
 
     def __getitem__(self, key):
         """
-        Looking up items from a RangeIndexedList
+        Looking up items from a RangeIndexedList:
 
         Where:
         vs = ('\u2615', '\U0001f35c', '\U0001f356') # three items
@@ -413,7 +415,7 @@ class RangeIndexedList:
         if found is False:
             if i == 0:
                 raise LookupError('key smaller than smallest known key')
-            elif i == len(self._range_keys):
+            elif i == len(self._bounds):
                 raise LookupError('key larger than largest known key')
             elif not is_odd(i):
                 raise LookupError('key not in any range')
@@ -434,7 +436,7 @@ class RangeIndexedList:
     def __repr__(self):
         fmt = "{}({},copy_key={},default={},values={})"
         name = self.__class__.__name__
-        return fmt.format(name, self._range_keys, self._copy_key, self._default,
+        return fmt.format(name, self._bounds, self._copy_key, self._default,
             self._values)
 
     def insert(self, new_keys, new_values=None):
@@ -449,7 +451,7 @@ class RangeIndexedList:
           value corresponds to a start-stop key pair in new_keys.
 
         Where:
-        L._range_keys == [2,4,10,12]
+        L._bounds == [2,4,10,12]
         L._values == [1,2]
 
         Invoking:
@@ -457,7 +459,7 @@ class RangeIndexedList:
         L.insert((6,8,14,16,), new_values=(69, 420))
 
         Will change L to:
-        L._range_keys == [2,4,6,8,10,12,14,16]
+        L._bounds == [2,4,6,8,10,12,14,16]
         L._values == [1,69,2,420]
 
         """
@@ -488,8 +490,8 @@ class RangeIndexedList:
                 msg = "{}: ranges must have a length of one or more".format(i)
                 raise ValueError(msg)
 
-            self._range_keys.insert(ist, ke)
-            self._range_keys.insert(ist, ks)
+            self._bounds.insert(ist, ke)
+            self._bounds.insert(ist, ks)
             self._values.insert(iend//2, new_values[i_nk//2])
             i += 1
 
@@ -500,7 +502,7 @@ class RangeIndexedList:
         raise NotImplementedError('TODO: implement range removal method')
 
     @classmethod
-    def range_keys_from_ranges(self, ranges):
+    def bounds_from_ranges(self, ranges):
         """
         Create a list of range keys from a list of range objects for
         use with creating new range-indexed lists.
@@ -528,25 +530,48 @@ class RangeIndexedList:
                 i += 1
         return out
 
-    def validate(self):
-        # TODO: This method will check if the list is well-formed.
-        #
-        # The range keys must be sorted from the smallest value to
-        # the largest. All keys must be of the same type.
-        raise NotImplementedError('TODO: implement list validation')
+    def validate(self, bounds, values):
+        """
+        Check if bound and key lists are well-formed. Returns None
+        if all checks pass.
+
+        Raises ValueErrors if checks fail
+
+        """
+        # TODO: Tests for validate()
+        if is_odd(len(self._bounds)):
+            msg = 'bounds list must have an even number of bounds'
+            raise ValueError(msg)
+
+        if values is not None:
+            if len(self._bounds)//len(self._values) != 2:
+                if len(self._values) != 1:
+                    msg = 'only one value, or one value per bounds pair allowed'
+                    raise ValueError(msg)
+
+        t = type(bounds[0])
+        i = 1
+        for b in bounds[1:]:
+            if b <= bounds[i-1]:
+                msg = 'bounds[{}]: must be larger than the last'.format(i)
+                raise ValueError(msg)
+            if type(b) != t:
+                msg = 'all values must be of the same type as values[0]'
+                raise ValueError(msg)
+            i += 1
 
     def _do_index(self, key):
         """
-        Return the key's int index or suggested index in self._range_keys,
+        Return the key's int index or suggested index in self._bounds,
         along with a bool flag indicating if the key was in fact found
         in a tuple like:
 
         (index, found_flag)
 
-        If key is in self._range_keys, return the highest possible index.
+        If key is in self._bounds, return the highest possible index.
         If the key does not exist, return the lowest suggested index.
         The suggested index is a recommended index to be used for
-        inserting non-existent keys while keeping self._range_keys sorted.
+        inserting non-existent bounds while keeping self._bounds sorted.
 
         A zero index with a False indicates that the key is out of range
         on the smaller side of the first range. A index past the highest
@@ -554,16 +579,16 @@ class RangeIndexedList:
         greater side of the last range.
 
         """
-        i_len = len(self._range_keys)
+        i_len = len(self._bounds)
         i_start = 0
         i_end = i_len - 1
         # PROTIP: binary search
-        if key > self._range_keys[i_end]:
+        if key > self._bounds[i_end]:
             return (i_len, False)
         i = i_end // 2
         while i_end - i_start > 1:
             i = i_start + ((i_end-i_start) // 2)
-            k_rk = self._range_keys[i]
+            k_rk = self._bounds[i]
             if key == k_rk:
                 return (i, True)
             if key <= k_rk:
@@ -572,10 +597,10 @@ class RangeIndexedList:
                 i_start = i
 
         # if key was not found, determine the best index
-        if key > self._range_keys[i_start]:
-            return (i_end, (key == self._range_keys[i_end]))
+        if key > self._bounds[i_start]:
+            return (i_end, (key == self._bounds[i_end]))
         else:
-            return (i_start, (key == self._range_keys[i_start]))
+            return (i_start, (key == self._bounds[i_start]))
             # PROTIP: the final equality check is required because the
             # search loop above stops running as soon as i_end meets
             # i_start, missing out on the chance to raise the key found
@@ -796,7 +821,6 @@ class JSONRepo:
             else:
                 vs = v
             ril = RangeIndexedList(ks, vs, copy_key=True)
-            # TODO: Perform RangeIndexedList validation
             if '_ranges' not in trans_tmp:
                 trans_tmp['_ranges'] = []
             trans_tmp['_ranges'].append(ril)

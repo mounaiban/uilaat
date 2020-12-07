@@ -121,11 +121,11 @@ class GetitemTests(TestCase):
 
     """
     def setUp(self):
-        self.range_keys = (5,10,15,20,25,30)
-        self.range_keys_b2b = (2,4,5,7,8,10) # back-to-back
-        self.range_keys_s = (2,3,6,7,9,10) # short ranges
-        self.range_keys_s_b2b = (2,3,4,5,6,7) # short ranges, back-to-back
-        self.range_keys_one = (18,35) # single range
+        self.bounds = (5,10,15,20,25,30)
+        self.bounds_b2b = (2,4,5,7,8,10) # back-to-back
+        self.bounds_s = (2,3,6,7,9,10) # short ranges
+        self.bounds_s_b2b = (2,3,4,5,6,7) # short ranges, back-to-back
+        self.bounds_one = (18,35) # single range
         self.range_zero_start_one = (0,10)
         self.range_zero_start_one_s = (0,1)
 
@@ -134,8 +134,8 @@ class GetitemTests(TestCase):
         Lookups on spaced-out ('normal') ranges
 
         """
-        vals = [i for i in range(len(self.range_keys)//2)]
-        ril = RangeIndexedList(self.range_keys, vals)
+        vals = [i for i in range(len(self.bounds)//2)]
+        ril = RangeIndexedList(self.bounds, vals)
 
         # NOTE: Please leave this test as it is, as it serves as a
         # transparent reference test.
@@ -157,12 +157,12 @@ class GetitemTests(TestCase):
         Lookup with copy key to output option
 
         """
-        ks = self.range_keys_one
+        ks = self.bounds_one
         SAY_YES = '\u2713'
         vals = ('\ufffc' + SAY_YES,)
         ril = RangeIndexedList(ks, vals, copy_key=True)
 
-        k = self.range_keys_one[0]
+        k = self.bounds_one[0]
         out_exp = chr(k) + SAY_YES
         self.assertEqual(ril[k], out_exp)
 
@@ -171,7 +171,7 @@ class GetitemTests(TestCase):
         Out-of-range index handling for spaced-out ('normal') ranges
 
         """
-        ks = self.range_keys
+        ks = self.bounds
         vals = [i for i in range(len(ks)//2)]
         ril = RangeIndexedList(ks, vals)
         # past small side of ranges
@@ -192,7 +192,7 @@ class GetitemTests(TestCase):
         Lookups on multiple ranges with one value
 
         """
-        ks = self.range_keys
+        ks = self.bounds
         vals = ('same',)
         ril = RangeIndexedList(ks, vals)
 
@@ -206,7 +206,7 @@ class GetitemTests(TestCase):
         Lookups on short, back-to-back ranges
 
         """
-        ks = self.range_keys_s_b2b
+        ks = self.bounds_s_b2b
         vals = [i for i in range(len(ks)//2)]
         ril = RangeIndexedList(ks, vals)
 
@@ -220,7 +220,7 @@ class GetitemTests(TestCase):
         Out-of-range index handling for short, back-to-back ranges
 
         """
-        ks = self.range_keys_s_b2b
+        ks = self.bounds_s_b2b
         vals = [i for i in range(len(ks)//2)]
         ril = RangeIndexedList(ks, vals)
 
@@ -250,7 +250,7 @@ class InsertTests(TestCase):
         ril.insert(new_range, (42,))
 
         rks_exp = [5,10,15,25,30,35]
-        self.assertEqual(ril._range_keys, rks_exp)
+        self.assertEqual(ril._bounds, rks_exp)
         rvals_exp = [0,42,1]
         self.assertEqual(ril._values, rvals_exp)
 
@@ -267,7 +267,7 @@ class InsertTests(TestCase):
         ril.insert(new_range, (42,))
 
         rks_exp = [5,10,30,35,36,48]
-        self.assertEqual(ril._range_keys, rks_exp)
+        self.assertEqual(ril._bounds, rks_exp)
         rvals_exp = [0,1,42]
         self.assertEqual(ril._values, rvals_exp)
 
@@ -284,7 +284,7 @@ class InsertTests(TestCase):
         ril.insert(new_range, (42,))
 
         rks_exp = [0,3,5,10,30,35]
-        self.assertEqual(ril._range_keys, rks_exp)
+        self.assertEqual(ril._bounds, rks_exp)
         rvals_exp = [42,0,1]
         self.assertEqual(ril._values, rvals_exp)
 
@@ -300,7 +300,7 @@ class InsertTests(TestCase):
         with self.assertRaises(ValueError):
             new_range = (4,31)
             ril.insert(new_range)
-        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._bounds, ks)
         self.assertEqual(ril._values, vals)
 
     def test_insert_overlap_small_end(self):
@@ -315,7 +315,7 @@ class InsertTests(TestCase):
         with self.assertRaises(ValueError):
             new_range = (6,28)
             ril.insert(new_range)
-        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._bounds, ks)
         self.assertEqual(ril._values, vals)
 
     def test_insert_overlap_large_end(self):
@@ -330,7 +330,7 @@ class InsertTests(TestCase):
         with self.assertRaises(ValueError):
             new_range = (12,36)
             ril.insert(new_range)
-        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._bounds, ks)
         self.assertEqual(ril._values, vals)
 
     def test_insert_overlap_whole_range(self):
@@ -345,7 +345,7 @@ class InsertTests(TestCase):
         with self.assertRaises(ValueError):
             new_range = (29,36)
             ril.insert(new_range)
-        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._bounds, ks)
         self.assertEqual(ril._values, vals)
 
     def test_insert_overlap_whole_range_one(self):
@@ -360,7 +360,7 @@ class InsertTests(TestCase):
         with self.assertRaises(ValueError):
             new_range = (4,12)
             ril.insert(new_range)
-        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._bounds, ks)
         self.assertEqual(ril._values, vals)
 
     def test_insert_overlap_within_range(self):
@@ -375,7 +375,7 @@ class InsertTests(TestCase):
         with self.assertRaises(ValueError):
             new_range = (7,9)
             ril.insert(new_range)
-        self.assertEqual(ril._range_keys, ks)
+        self.assertEqual(ril._bounds, ks)
         self.assertEqual(ril._values, vals)
 
 
