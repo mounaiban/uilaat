@@ -6,6 +6,7 @@ Repository (JSONRepo) class
 
 """
 import hashlib
+import re
 from os import path
 from unittest import TestCase
 from json import JSONEncoder
@@ -625,78 +626,50 @@ class GetTransTests(TestCase):
         self.assertEqual(jr.get_trans(n=1), {'1': FANCY_ONE_b})
         self.assertEqual(jr.get_trans(n=2), {'1': FANCY_ONE_c})
 
-    def test_get_trans_offset(self):
+    def test_get_trans_cpoff(self):
         """
-        Offset translations with inclusion
+        Code Point Offset Lookup translation
 
         """
-        trans_targets = (
-            JSONRepo.CODE_OFFSET+' 33 127',
-            JSONRepo.CODE_OFFSET+' 65 90',
-            JSONRepo.CODE_OFFSET+' 65 90',
-            # mind the spaces...  ^
-        )
-        trans_offs = (65248,119473,119951)
-        dbs = {
-            'test_get_trans_offset_first': {
-                'meta': {
-                    'reverse': False,
-                    'version': VERSION,
-                    'desc': {
-                        'en-au': 'Offset trans. loading test with inclusion',
-                    },
+        db_name = 'test_get_trans_offset'
+        trans_name = JSONRepo.CODE_OFFSET + ' aesthetic'
+                  # please mind the space... ^
+        args = [33,127,65248]
+        db = {
+            'meta': {
+                'reverse': False,
+                'version': VERSION,
+                'desc': {
+                    'en-au': 'Offset translation loading test',
                 },
-                'trans': {trans_targets[0]: trans_offs[0],},
             },
-            'test_get_trans_offset_second': {
-                'meta': {
-                    'reverse': False,
-                    'version': VERSION,
-                    'desc': {
-                        'en-au': 'Offset trans. loading test with inclusion',
-                    },
-                },
-                'trans': {trans_targets[1]: trans_offs[1],},
-                'trans-include': ['test_get_trans_offset_first',],
+            'trans': {
+                trans_name: args,
             },
-            'test_get_trans_offset_last': {
-                'meta': {
-                    'reverse': False,
-                    'version': VERSION,
-                    'desc': {
-                        'en-au': 'Offset trans. loading test with inclusion',
-                    },
-                },
-                'trans': {trans_targets[2]: trans_offs[2],},
-                'trans-include': ['test_get_trans_offset_second',],
-            }
         }
-        dbs_keys = tuple(dbs.keys())
-        for k in dbs_keys:
-            write_json_file(k, dbs[k])
+        write_json_file(db_name, db)
         jr = JSONRepo(REPO_DIR)
-        jr.load_db('test_get_trans_offset_last')
+        jr.load_db(db_name)
         trans_dict = jr.get_trans()
 
-        for i in range(len(trans_targets)):
-            args_se = [int(i) for i in jr._str_to_keys(trans_targets[i])]
-            args_all = args_se + [trans_offs[i],]
-            expected = CodePointOffsetLookup(*args_all)
-            loaded = trans_dict['_offsets'][i]
-            with self.subTest(db=dbs_keys[i]):
-                self.assertEqual(loaded, expected)
+        cpoff_expected = CodePointOffsetLookup(*args)
+        cpoff = trans_dict['_offsets'][0]
+        self.assertEqual(cpoff, cpoff_expected)
 
     def test_get_trans_range(self):
         """
         Range-Indexed translations with inclusion
 
         """
-        trans_targets = (
-            JSONRepo.CODE_RANGE+' 32 676 1024 1279',
-            JSONRepo.CODE_RANGE+' 13312 55203',
-            # mind the spaces... ^
+        trans_names = (
+            JSONRepo.CODE_RANGE + ' squares_a',
+            JSONRepo.CODE_RANGE + ' squares_cjk',
+            #   mind the spaces... ^
         )
-        trans_repls = (['\ufffc\u20de\u00a0',],['\ufffc\u20de\u00a0',],)
+        trans_args = (
+            [[32,676,1024,1279,],['\ufffc\u20de\u00a0']],
+            [[13312,55203],['\ufffc\u20de\u00a0']],
+        )
         dbs = {
             'test_get_trans_range_first': {
                 'meta': {
@@ -706,7 +679,7 @@ class GetTransTests(TestCase):
                         'en-au': 'Range trans. loading test with inclusion',
                     },
                 },
-                'trans': {trans_targets[0]: trans_repls[0],},
+                'trans': {trans_names[0]: trans_args[0],},
             },
             'test_get_trans_range_last': {
                 'meta': {
@@ -716,7 +689,7 @@ class GetTransTests(TestCase):
                         'en-au': 'Range trans. loading test with inclusion',
                     },
                 },
-                'trans': {trans_targets[1]: trans_repls[1],},
+                'trans': {trans_names[1]: trans_args[1],},
                 'trans-include': ['test_get_trans_range_first',],
             }
         }
@@ -727,11 +700,46 @@ class GetTransTests(TestCase):
         jr.load_db('test_get_trans_range_last')
         trans_dict = jr.get_trans()
 
-        for i in range(len(trans_targets)):
-            ks = jr._str_to_keys(trans_targets[i])
-            vals = trans_repls[i]
-            ri_expected = RangeIndexedList(ks, vals, copy_key=True)
+        for i in range(len(trans_names)):
+            bs = trans_args[i][0]
+            vals = trans_args[i][1]
+            ri_expected = RangeIndexedList(bs, vals, copy_key=True)
             ri = trans_dict['_ranges'][i]
             with self.subTest(db=dbs_keys[i]):
                 self.assertEqual(ri, ri_expected)
+
+    def test_get_trans_regex_alts(self):
+        """
+        Regex translation adaptor loading with alternatives
+
+        """
+        db_name = 'test_get_trans_regex_alts'
+        trans_name = JSONRepo.CODE_REGEX + ' ' + 'black_cat'
+        args = (
+            [r'black cat', '\U000101ec\ufffc'],
+            [r'black cat', '\U0001f63b\ufffc'],
+        )
+        db = {
+            'meta': {
+                'reverse': False,
+                'version': VERSION,
+                'desc': {
+                    'en-au': 'Offset translation loading test with alts.',
+                },
+            },
+            'trans': {trans_name: args},
+        }
+        write_json_file(db_name, db)
+        jr = JSONRepo(REPO_DIR)
+        jr.load_db(db_name)
+
+        trans_list_a = jr.get_trans(0)['_regexes']
+        regs_a = trans_list_a[0]
+        regs_a_expected = [re.compile(args[0][0]), args[0][1],]
+        self.assertEqual(regs_a, regs_a_expected)
+
+        trans_list_b = jr.get_trans(1)['_regexes']
+        regs_b = trans_list_b[0]
+        regs_b_expected = [re.compile(args[1][0]), args[1][1],]
+        self.assertEqual(regs_b, regs_b_expected)
 

@@ -225,7 +225,7 @@ def sfunc_from_list(sf_list):
         i_cs_end = 0
         out = s
         def do_fns_char():
-            # run all collected character-scope functions on input 
+            # run all collected character-scope functions on input
             nonlocal out
             tmp_s = ''
             for c in out:
@@ -806,37 +806,55 @@ class JSONRepo:
 
         def _prep_trans_ril(k, v):
             # Code Point Range Translation handler
-            ks = self._str_to_keys(k)
-            iv = n
+            #
+            # Translation Database format summary
+            #  trans: [[ba1,ba2,...], [va1,va2,...]]
+            #  name: CODE_RANGE + ' ' + trans_name
+            #  Please see top of class for CODE_RANGE definition
+            #  DB entry: {name: trans}
+            #  multi-trans DB entry: {name: [trans1, trans2, ...]}
+
+            # PROTIP: k only contains the name of the translation
             if reverse:
                 fmt = "{}: reverse range translations unsupported"
-                msg = fmt.format(dmeta[KEY_DB_NAME]) 
+                msg = fmt.format(dmeta[KEY_DB_NAME])
                 warn(RuntimeWarning, msg)
                 return
-            if isinstance(v[0], (list, tuple)):
+            it = n
+            if isinstance(v[0][0], (list, tuple)):
                 # handle alternate translations
-                if n > len(ks):
-                    iv = 0
-                vs = v[iv]
+                if n > len(v):
+                    it = 0
+                bs = v[it][0]
+                vs = v[it][1]
             else:
-                vs = v
-            ril = RangeIndexedList(ks, vs, copy_key=True)
+                bs = v[0]
+                vs = v[1]
+            ril = RangeIndexedList(bs, vs, copy_key=True)
             if '_ranges' not in trans_tmp:
                 trans_tmp['_ranges'] = []
             trans_tmp['_ranges'].append(ril)
 
         def _prep_trans_cpoff(k, v):
             # Code Point Offset translation handler
-            ks = self._str_to_keys(k)
+            it = n
+            if isinstance(v[0], list):
+                # handle alternate translations
+                if n > len(v):
+                    it = 0
+                args = v[it]
+            else:
+                args = v
+
             if reverse:
-                offset_tmp = v
-                start = offset_tmp + v
-                end = offset_tmp + v
+                offset_tmp = args[2]
+                start = offset_tmp + args[0]
+                end = offset_tmp + args[1]
                 offset = -offset_tmp
             else:
-                start = int(ks[0])
-                end = int(ks[1])
-                offset = v
+                start = args[0]
+                end = args[1]
+                offset = args[2]
             cpoff = CodePointOffsetLookup(start, end, offset)
             if '_offsets' not in trans_tmp:
                 trans_tmp['_offsets'] = []
@@ -846,11 +864,20 @@ class JSONRepo:
             # Regex handler
             if reverse:
                 fmt = "{}: reverse regex translations unsupported"
-                msg = fmt.format(dmeta[KEY_DB_NAME]) 
+                msg = fmt.format(dmeta[KEY_DB_NAME])
                 warn(RuntimeWarning, msg)
                 return
-            rege = re.compile(k[1])
-            out = ('rege', v)
+            it = n
+            if isinstance(v[0], list):
+                # handle alternate translations
+                if n > len(v):
+                    it = 0
+                args = v[it]
+            else:
+                args = v
+            rege = re.compile(args[0])
+            repl = args[1]
+            out = [rege, repl]
             if '_regexes' not in trans_tmp:
                 trans_tmp['_regexes'] = []
             trans_tmp['_regexes'].append(out)
