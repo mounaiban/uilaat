@@ -732,9 +732,11 @@ class JSONRepo:
 
     def get_trans(self, n=None, maketrans=False):
         """
-        Return a translation dictionary from the currently selected
-        repository. Remember to load a database using load_db() before
-        attempting this.
+        Return a list of translation objects from the currently selected
+        repository. Remember to load a database using load_db() first.
+        Translation objects may be dict-likes or a two-item list containing
+        [creg, repl,] where creg is a compiled regex, and repl is a string
+        to replace text matching creg.
 
         Given this translation loaded from a database:
         {'a': '4', 'b':['|3', '\ua7b4', '\U0001d7ab'], 'c':['<', '\U0001f30a']}
@@ -745,9 +747,9 @@ class JSONRepo:
         get_trans(1) == {'a': '4', 'b':'\ua7b4', 'c': '\U0001f30a'}
         get_trans(2) == {'a': '4', 'b':'\U0001d7ab', 'c': '<'}
 
-        The maketrans option causes returned translation dictionaries to
-        be ready for use with str.translate(), which requires translation
-        dictionaries to use decimal codepoint values instead.
+        The maketrans option requests dictionaries that are ready for use
+        with str.translate(), these use decimal codepoint values for keys
+        instead of characters or strings.
 
         get_trans(0, maketrans=True) == {97: '4', 98:'|3', 99: '<'}
 
@@ -755,9 +757,9 @@ class JSONRepo:
         or get_trans(0) if invoked for the first time since loading a database
 
         """
-        trans_tmp = {}
+        trans_dicts = [{}]
         if self.current_db_name is None:
-            return trans_tmp
+            return None
         # Handler Functions
         #
         # Summary of Handler Function mini-API
@@ -774,8 +776,8 @@ class JSONRepo:
         #               different types of items, but always results in int
         #               keys being applied.
         #
-        # PROTIP: The instance variables are set in the main loop after the
-        #   last handler function.
+        # PROTIP: The instance variables are set in the main loop, whose
+        #  code begins after the last handler function below.
         #
         def _prep_trans(k, v):
             # String-to-string or int-to-string translation handler
@@ -800,9 +802,9 @@ class JSONRepo:
                 if k == '':
                     return
                 else:
-                    trans_tmp[v_out] = k
+                    trans_dicts[0][v_out] = k
             else:
-                trans_tmp[k] = v_out
+                trans_dicts[0][k] = v_out
 
         def _prep_trans_ril(k, v):
             # Code Point Range Translation handler
@@ -831,9 +833,7 @@ class JSONRepo:
                 bs = v[0]
                 vs = v[1]
             ril = RangeIndexedList(bs, vs, copy_key=True)
-            if '_ranges' not in trans_tmp:
-                trans_tmp['_ranges'] = []
-            trans_tmp['_ranges'].append(ril)
+            trans_dicts.append(ril)
 
         def _prep_trans_cpoff(k, v):
             # Code Point Offset translation handler
@@ -856,9 +856,7 @@ class JSONRepo:
                 end = args[1]
                 offset = args[2]
             cpoff = CodePointOffsetLookup(start, end, offset)
-            if '_offsets' not in trans_tmp:
-                trans_tmp['_offsets'] = []
-            trans_tmp['_offsets'].append(cpoff)
+            trans_dicts.append(cpoff)
 
         def _prep_trans_regex(k, v):
             # Regex handler
@@ -878,9 +876,7 @@ class JSONRepo:
             rege = re.compile(args[0])
             repl = args[1]
             out = [rege, repl]
-            if '_regexes' not in trans_tmp:
-                trans_tmp['_regexes'] = []
-            trans_tmp['_regexes'].append(out)
+            trans_dicts.append(out)
 
         handlers_k = {
             self.CODE_OFFSET: _prep_trans_cpoff,
@@ -890,7 +886,7 @@ class JSONRepo:
         ### End of Helper Functions ###
 
         if n is None:
-            if self._current_trans != {}:
+            if self._current_trans != None:
                 return self._current_trans
             n = 0
         for d in self._tmp:
@@ -911,8 +907,8 @@ class JSONRepo:
                 else:
                     handler = _prep_trans
                 handler(k, dtrans[k])
-        self._current_trans = trans_tmp
-        return trans_tmp
+        self._current_trans = trans_dicts
+        return trans_dicts
 
     def load_db(self, db_name):
         """
@@ -929,7 +925,7 @@ class JSONRepo:
         loading process.
 
         """
-        self._current_trans.clear()
+        self._current_trans = None
         self._tmp.clear()
         self._filename_memo.clear()
         self.current_db_name = None
