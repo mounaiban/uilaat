@@ -765,10 +765,10 @@ class JSONRepo:
         #   k - translation key, v - translation value; k-v pairs are loaded
         #   from the 'trans' object in a UILAAT JSON translation database
         #
-        # JSONRepo Instance Variables: dmeta, maketrans, reverse
+        # JSONRepo Instance Variables: dmeta, maketrans, reverse_trans
         #   dmeta - 'meta' object of the translation database,
-        #   reverse - bool flag to indicate that the translation in the
-        #             database file should be reversed.
+        #   reverse_trans - bool flag to indicate that the translation in the
+        #                   database file should be reversed.
         #   maketrans - bool flag to indicate output is for use with
         #               str.translate(); this may have different effects on
         #               different types of items, but always results in int
@@ -796,7 +796,7 @@ class JSONRepo:
                         msg = fmt.format(dmeta[KEY_DB_NAME])
                         warn(RuntimeWarning, 'msg')
                     return
-            if reverse:
+            if reverse_trans:
                 if k == '':
                     return
                 else:
@@ -815,7 +815,7 @@ class JSONRepo:
             #  multi-trans DB entry: {name: [trans1, trans2, ...]}
 
             # PROTIP: k only contains the name of the translation
-            if reverse:
+            if reverse_trans:
                 fmt = "{}: reverse range translations unsupported"
                 msg = fmt.format(dmeta[KEY_DB_NAME])
                 warn(RuntimeWarning, msg)
@@ -846,7 +846,7 @@ class JSONRepo:
             else:
                 args = v
 
-            if reverse:
+            if reverse_trans:
                 offset_tmp = args[2]
                 start = offset_tmp + args[0]
                 end = offset_tmp + args[1]
@@ -862,7 +862,7 @@ class JSONRepo:
 
         def _prep_trans_regex(k, v):
             # Regex handler
-            if reverse:
+            if reverse_trans:
                 fmt = "{}: reverse regex translations unsupported"
                 msg = fmt.format(dmeta[KEY_DB_NAME])
                 warn(RuntimeWarning, msg)
@@ -896,7 +896,13 @@ class JSONRepo:
         for d in self._tmp:
             dmeta = d.get('meta', {})
             dtrans = d.get('trans', {})
-            reverse = dmeta.get('reverse', False)
+            # TODO: Eventually remove support for 'reverse'
+            reverse_trans_old = dmeta.get('reverse', False)
+            reverse_trans = dmeta.get('reverse-trans', reverse_trans_old)
+            if reverse_trans_old is not False:
+                fmt = '{}: use reverse-trans to specify reverse translations'
+                msg = fmt.format(dmeta[KEY_DB_NAME])
+                warn(msg, DeprecationWarning)
             for k in dtrans.keys():
                 if k == '':
                     handler = _prep_trans

@@ -72,7 +72,7 @@ class LoadDbTests(TestCase):
         dbs = {
             'test_load_first': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database loading test',
@@ -82,7 +82,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_second': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database loading test',
@@ -93,7 +93,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database loading test',
@@ -127,7 +127,7 @@ class LoadDbTests(TestCase):
         dbs = {
             'test_load_multi_include_first': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database multi-inclusion test',
@@ -137,7 +137,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_multi_include_second': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database multi-inclusion test',
@@ -147,7 +147,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_multi_include_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database multi-inclusion test',
@@ -187,7 +187,7 @@ class LoadDbTests(TestCase):
         dbs = {
             'test_load_self_include_first': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database self inclusion handling test',
@@ -198,7 +198,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_self_include_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database self inclusion handling test',
@@ -237,7 +237,7 @@ class LoadDbTests(TestCase):
         dbs = {
             'test_load_loop_first': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database inclusion loop handling test',
@@ -248,7 +248,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_loop_second': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database inclusion loop handling test',
@@ -259,7 +259,7 @@ class LoadDbTests(TestCase):
             },
             'test_load_loop_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database inclusion loop handling test',
@@ -305,7 +305,7 @@ class GetTransTests(TestCase):
         name = 'test_get_trans'
         db = {
             'meta': {
-                'reverse': False,
+                'reverse-trans': False,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Single-database get translation test',
@@ -331,7 +331,7 @@ class GetTransTests(TestCase):
         dbs = {
             'test_get_trans_switch_a': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database switching test',
@@ -341,7 +341,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_switch_b': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Database switching test',
@@ -372,7 +372,7 @@ class GetTransTests(TestCase):
         dbs = {
             'test_get_trans_multi_first_a': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database get translation test',
@@ -382,7 +382,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_multi_second': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database get translation test',
@@ -393,7 +393,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_multi_first_b': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database get translation test',
@@ -403,7 +403,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_multi_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database get translation test',
@@ -435,7 +435,7 @@ class GetTransTests(TestCase):
         dbs = {
             'test_get_trans_override_first_a': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database translation overrides test',
@@ -445,7 +445,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_override_second': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database translation overrides test',
@@ -456,7 +456,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_override_first_b': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database translation overrides test',
@@ -466,7 +466,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_override_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Multi-database translation overrides test',
@@ -528,7 +528,7 @@ class GetTransTests(TestCase):
         name = 'test_get_trans_default_reverse'
         db = {
             'meta': {
-                'reverse': True,
+                'reverse-trans': True,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Defaults in reversed translation handling',
@@ -553,7 +553,7 @@ class GetTransTests(TestCase):
         name = 'test_get_trans_alts_reverse'
         db = {
             'meta': {
-                'reverse': True,
+                'reverse-trans': True,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Standalone reversed translation with alts.',
@@ -579,7 +579,7 @@ class GetTransTests(TestCase):
         name = 'test_get_trans_alts_oor'
         db = {
             'meta': {
-                'reverse': False,
+                'reverse-trans': False,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Standalone translation with alts. (OOR test)',
@@ -608,7 +608,7 @@ class GetTransTests(TestCase):
         name = 'test_get_trans_alts'
         db = {
             'meta': {
-                'reverse': False,
+                'reverse-trans': False,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Standalone translation with alternatives',
@@ -637,7 +637,7 @@ class GetTransTests(TestCase):
         args = [33,127,65248]
         db = {
             'meta': {
-                'reverse': False,
+                'reverse-trans': False,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Offset translation loading test',
@@ -673,7 +673,7 @@ class GetTransTests(TestCase):
         dbs = {
             'test_get_trans_range_first': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Range trans. loading test with inclusion',
@@ -683,7 +683,7 @@ class GetTransTests(TestCase):
             },
             'test_get_trans_range_last': {
                 'meta': {
-                    'reverse': False,
+                    'reverse-trans': False,
                     'version': VERSION,
                     'desc': {
                         'en-au': 'Range trans. loading test with inclusion',
@@ -721,7 +721,7 @@ class GetTransTests(TestCase):
         )
         db = {
             'meta': {
-                'reverse': False,
+                'reverse-trans': False,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Offset translation loading test with alts.',
