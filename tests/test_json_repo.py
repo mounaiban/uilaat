@@ -42,11 +42,11 @@ def write_json_file(name, dic, repo_dir=REPO_DIR):
         fh.close()
     except FileExistsError:
         fh = open(fpath, mode='br')
-        hasher = hashlib.md5  # not a crypto operation, so it's ok
+        hasher = hashlib.blake2s
         fc = fh.read()
         out_bytes = bytes(out, 'utf-8')
         sum_e = hasher(out_bytes).digest()
-        sum_cur = hashlib.md5(fc).digest()
+        sum_cur = hasher(fc).digest()
         if sum_cur != sum_e:
             fmt = '{}: file contains non-test data, please check and delete'
             msg = fmt.format(fpath)
