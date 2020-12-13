@@ -45,6 +45,21 @@ is_odd = lambda x : x%2 != 0
 # Please review the notes at the end of this file for an
 # understanding of the conventions used in this library.
 
+utf16_hs = lambda v:((((v & 0x1F0000)>>16)-1)<<10) | ((v & 0xFC00)>>10) | 0xD800
+    # get UTF-16 high surrogate ordinal from code point ordinal
+utf16_hs_c = lambda c: chr(utf16_hs(ord(c)))
+    # get high surrogate from character
+utf16_ls = lambda v:(v&0x3ff) | 0xdc00
+    # get UTF-16 low surrogate ordinal code point ordinal
+utf16_ls_c = lambda c: chr(utf16_ls(ord(c)))
+    # get low surrogate from character
+def surr(c):
+    cor = ord(c)
+    if cor <= 0x10000 or cor < 0x10FFFF:
+        return ''.join((utf16_hs_c(c), utf16_ls_c(c)))
+    else:
+        raise ValueError('sorry, code points 0x10000 and above only')
+
 def in_range(r_start, r_end, char):
     if (r_start is None) or (r_end is None):
         return True
