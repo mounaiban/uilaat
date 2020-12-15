@@ -292,6 +292,19 @@ class CodePointOffsetLookup:
 
     cpol[x] == chr(x + off)
     """
+    def dict(self):
+        """
+        Return a Python dict equivalent of the CodePointOffsetLookup
+
+        Lookups will be expanded into multiple keys and values, one for
+        each key within the CPOL's lookup range.
+
+        """
+        out = {}
+        for i in range(self._start, self._end+1):
+            out[i] = self.__getitem__(i)
+        return out
+
     def __init__(self, start, end, offset):
 
         # validate start and end
@@ -455,6 +468,24 @@ class RangeIndexedList:
         name = self.__class__.__name__
         return fmt.format(name, self._bounds, self._copy_key, self._default,
             self._values)
+
+    def dict(self):
+        """
+        Return a Python dict equivalent of the RangeIndexedList.
+
+        Range lookups will be expanded into multiple direct key-value
+        lookups, covering every available key for each range.
+
+        """
+        # TODO: This is part of an investigation on the performance
+        # of Python dict's where a large number of keys are involved.
+        # Lookups on a basic dict are much faster than with an RIL,
+        # at the expense of memory usage.
+        out = {}
+        for i in range(0, len(self._bounds), 2):
+            for kn in range(self._bounds[i], self._bounds[i+1]+1):
+                out[kn] = self.__getitem__(kn)
+        return out
 
     def insert(self, new_keys, new_values=None):
         """
