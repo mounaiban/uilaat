@@ -26,6 +26,7 @@ A mini-library for working with decorative Unicode text
 # Unicode is a registered trademark of Unicode, Inc.
 
 import re
+from functools import reduce
 from json import JSONDecoder
 from os import path
 from warnings import warn
@@ -778,7 +779,7 @@ class JSONRepo:
         """
         return (self._tmp[-1])['meta'].get(key)
 
-    def get_trans(self, n=None, maketrans=False):
+    def get_trans(self, n=None, maketrans=False, one_dict=False):
         """
         Return a list of translation objects from the currently selected
         repository. Remember to load a database using load_db() first.
@@ -827,6 +828,23 @@ class JSONRepo:
         # PROTIP: The instance variables are set in the main loop, whose
         #  code begins after the last handler function below.
         #
+        def _prep_one_dict(trans_list):
+            # Convert the list of translation lookup objects into a list
+            # with one dict at index zero and optional accompanying regex
+            # translations appearing later.
+            if not isinstance(trans_list[0], dict):
+                raise ValueError("debug: dictionary not on top of trans list")
+            out = [trans_list[0],]
+            for t in trans_list:
+                if hasattr(t, 'dict'):
+                    tmp = t.dict()
+                    ktmp = tmp.keys()
+                    for k in ktmp:
+                        out[0][k] = t[k]
+                else:
+                    out.append(t)
+            return out
+
         def _prep_trans(k, v):
             # String-to-string or int-to-string translation handler
             v_out = SUBPOINT
@@ -934,8 +952,6 @@ class JSONRepo:
         ### End of Helper Functions ###
 
         if n is None:
-            if self._current_trans != None:
-                return self._current_trans
             n = 0
         for d in self._tmp:
             dmeta = d.get('meta', {})
@@ -955,8 +971,10 @@ class JSONRepo:
                 else:
                     handler = _prep_trans
                 handler(k, dtrans[k])
-        self._current_trans = trans_dicts
-        return trans_dicts
+        if one_dict is True:
+            return _prep_one_dict(trans_dicts)
+        else:
+            return trans_dicts
 
     def load_db(self, db_name):
         """
