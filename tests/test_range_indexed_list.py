@@ -152,6 +152,23 @@ class GetitemTests(TestCase):
         self.assertEqual(ril[29], vals[2])
         self.assertEqual(ril[30], vals[2])
 
+    def test_getitem_none_shared_copykey(self):
+        """
+        Lookup a shared None value when copy_key is enabled
+
+        """
+        vals = [None,]
+        ril = RangeIndexedList(self.bounds, vals, copy_key=True)
+
+        for i in range(0, len(self.bounds), 2):
+            ks = self.bounds[i]
+            ke = self.bounds[i+1]
+            km = ks + (ke-ks)//2  # mid point between range start & end
+            with self.subTest(ks=ks):
+                self.assertEqual(ril[ks], None)
+                self.assertEqual(ril[ke], None)
+                self.assertEqual(ril[km], None)
+
     def test_getitem_copykey(self):
         """
         Lookup with copy key to output option

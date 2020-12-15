@@ -443,7 +443,9 @@ class RangeIndexedList:
         if self._copy_key is False:
             return out
         else:
-            if ('\ufffc' in out) and (isinstance(key, int) is True):
+            if out is None:
+                return None
+            elif ('\ufffc' in out) and (isinstance(key, int) is True):
                 return out.replace('\ufffc', chr(key))
             else:
                 return out
