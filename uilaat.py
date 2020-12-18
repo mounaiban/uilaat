@@ -472,6 +472,8 @@ class TranslationDict(dict):
 
     def __init__(self, *args, **kwargs):
         self._out_default = SUBPOINT
+        if len(args) > 0:
+            self._out_default = args[0].get('', SUBPOINT)
         self._super = super()
         self._super.__init__(*args, **kwargs)
 
@@ -484,22 +486,16 @@ class TranslationDict(dict):
                 self._super.__setitem__(ord(key), value)
 
     def __getitem__(self, key):
-        out = self._out_default
-        ins = key
-        try:
-            out = self._super.__getitem__(key)
-        except LookupError:
+        out = self._super.get(key, self._out_default)
+        if out is None:
+            return None
+        if SUBPOINT in out:
+            keycopy = key
             if isinstance(key, int) is True:
-                ins = chr(key)
-            else:
-                ins = key
-        finally:
-            if out is None:
-                return None
-            if SUBPOINT in out:
-                return out.replace(SUBPOINT, ins)
-            else:
-                return out
+                keycopy = chr(key)
+            return out.replace(SUBPOINT, keycopy)
+        else:
+            return out
 
     def reset_default(self):
         if '' in self:
