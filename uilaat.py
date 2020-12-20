@@ -606,8 +606,7 @@ class JSONRepo:
 
         get_trans(0, maketrans=True) == {97: '4', 98:'|3', 99: '<'}
 
-        get_trans() with no parameters returns the last requested translation,
-        or get_trans(0) if invoked for the first time since loading a database
+        get_trans() with no parameters returns get_trans(0).
 
         """
         first_dict = TranslationDict({})
