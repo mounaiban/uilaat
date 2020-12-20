@@ -90,3 +90,46 @@ class GetitemTests(TestCase):
 
         self.assertEqual(out_nf, None)
 
+    def test_setitem_default(self):
+        """
+        Change default output by setting value of empty string key
+        """
+        test_lookup = '\uffff'
+        test_newdef = '\u0280\u20df' # small capital R in enclosing diamond
+        tdict_d = self.clsc.from_dict(dict_with_default)
+        tdict_d[''] = test_newdef
+        out_nf = tdict_d[ord(test_lookup)]
+
+        self.assertEqual(tdict_d._out_default, out_nf)
+        self.assertEqual(out_nf, test_newdef)
+
+    def test_setitem_multi_codepoint(self):
+        """
+        Handle insertion of multi-code point string to dictionary
+        """
+        test_newval = FANCY_Bm
+        test_newkey = 'multi'
+        tdict_d = self.clsc.from_dict(dict_with_default)
+        tdict_d[test_newkey] = test_newval
+
+        out_lu = tdict_d[test_newkey]
+
+        self.assertEqual(out_lu, test_newval)
+
+    def test_getdict(self):
+        """
+        Conversion to plain dict; retain str.translate()-ready format
+        """
+        tdict_d = self.clsc.from_dict(dict_plain)
+        out_expected = {ord('a'):FANCY_A, ord('b'):FANCY_Bm,}
+
+        self.assertEqual(tdict_d.get_dict(), out_expected)
+
+    def test_getdict_default(self):
+        """
+        Handle conversion to plain dict when default output set
+        """
+        tdict_d = self.clsc.from_dict(dict_with_default)
+
+        self.assertIsNone(tdict_d.get_dict())
+

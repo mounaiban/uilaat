@@ -11,7 +11,8 @@ from os import path
 from unittest import TestCase
 from json import JSONEncoder
 
-from uilaat import JSONRepo, CodePointOffsetLookup, RangeIndexedList
+from uilaat import JSONRepo, CodePointOffsetLookup, RangeIndexedList,\
+    TranslationDict
 from uilaat import KEY_DB_NAME, SUFFIX_JSON, SUBPOINT, VERSION
 
 # Test Resources
@@ -113,11 +114,13 @@ class LoadDbTests(TestCase):
         for i in range(len(jr._tmp)):
             db_tmp = jr._tmp[i]
             run_name = db_tmp['meta'][KEY_DB_NAME]
-            trans = db_tmp['trans']
-            trans_expected = dbs.get(dbs_keys[i])['trans']
+            dict_loaded = db_tmp['trans']
+            trans_loaded = TranslationDict(dict_loaded)
+            dict_expected = dbs.get(dbs_keys[i])['trans']
+            trans_expected = TranslationDict(dict_expected)
             with self.subTest(i=i):
                 self.assertEqual(run_name, dbs_keys[i])
-                self.assertEqual(trans, trans_expected)
+                self.assertEqual(trans_loaded, trans_expected)
         self.assertEqual(len(jr._tmp), len(dbs_keys))
 
     def test_load_multi_include(self):
@@ -170,11 +173,13 @@ class LoadDbTests(TestCase):
         for i in range(len(jr._tmp)):
             db_tmp = jr._tmp[i]
             run_name = db_tmp['meta'][KEY_DB_NAME]
-            trans = db_tmp['trans']
-            trans_expected = dbs.get(dbs_keys[i])['trans']
+            dict_loaded = db_tmp['trans']
+            trans_loaded = TranslationDict(dict_loaded)
+            dict_expected = dbs.get(dbs_keys[i])['trans']
+            trans_expected = TranslationDict(dict_expected)
             with self.subTest(i=i):
                 self.assertEqual(run_name, dbs_keys[i])
-                self.assertEqual(trans, trans_expected)
+                self.assertEqual(trans_loaded, trans_expected)
         self.assertEqual(len(jr._tmp), len(dbs_keys))
 
     def test_load_self_include(self):
@@ -318,7 +323,7 @@ class GetTransTests(TestCase):
         jr.load_db(name)
 
         # assertions
-        trans_expected = db['trans']
+        trans_expected = TranslationDict(db['trans'])
         trans = jr.get_trans()
         self.assertIn(trans_expected, trans)
 
@@ -361,7 +366,7 @@ class GetTransTests(TestCase):
         trans = jr.get_trans()
 
         # assertions
-        trans_expected = {'1':FANCY_ONE_a,}
+        trans_expected = TranslationDict({'1':FANCY_ONE_a,})
         self.assertIn(trans_expected, trans)
 
     def test_get_trans_multi(self):
@@ -423,7 +428,8 @@ class GetTransTests(TestCase):
         jr.load_db('test_get_trans_multi_last')
 
         # assertions
-        trans_expected = {'y':FANCY_Ym, '':SAY_YES, 'f':FANCY_F, 'e':FANCY_E}
+        dict_expected = {'y':FANCY_Ym, '':SAY_YES, 'f':FANCY_F, 'e':FANCY_E}
+        trans_expected = TranslationDict(dict_expected)
         trans = jr.get_trans()
         self.assertIn(trans_expected, trans)
 
@@ -486,7 +492,8 @@ class GetTransTests(TestCase):
         jr.load_db('test_get_trans_override_last')
 
         # assertions
-        trans_expected = {'x':FANCY_Xm, '1':FANCY_ONE_c, '':SAY_YES}
+        dict_expected = {'x':FANCY_Xm, '1':FANCY_ONE_c, '':SAY_YES}
+        trans_expected = TranslationDict(dict_expected)
         trans = jr.get_trans()
         self.assertIn(trans_expected, trans)
 
@@ -514,7 +521,7 @@ class GetTransTests(TestCase):
         jr.load_db(name)
 
         # assertions
-        trans_expected = {FANCY_E: 'e', FANCY_F: 'f'}
+        trans_expected = TranslationDict({FANCY_E: 'e', FANCY_F: 'f'})
         trans = jr.get_trans()
         self.assertIn(trans_expected, trans)
 
@@ -541,7 +548,7 @@ class GetTransTests(TestCase):
         jr.load_db(name)
 
         # assertions
-        trans_expected = {FANCY_E: 'e'}
+        trans_expected = TranslationDict({FANCY_E: 'e'})
         trans = jr.get_trans()
         self.assertIn(trans_expected, trans)
 
@@ -566,10 +573,10 @@ class GetTransTests(TestCase):
         jr = JSONRepo(REPO_DIR)
         jr.load_db(name)
 
-        self.assertIn({FANCY_ONE_a: '1'}, jr.get_trans())
-        self.assertIn({FANCY_ONE_a: '1'}, jr.get_trans(n=0))
-        self.assertIn({FANCY_ONE_b: '1'}, jr.get_trans(n=1))
-        self.assertIn({FANCY_ONE_c: '1'}, jr.get_trans(n=2))
+        self.assertIn(TranslationDict({FANCY_ONE_a: '1'}), jr.get_trans())
+        self.assertIn(TranslationDict({FANCY_ONE_a: '1'}), jr.get_trans(n=0))
+        self.assertIn(TranslationDict({FANCY_ONE_b: '1'}), jr.get_trans(n=1))
+        self.assertIn(TranslationDict({FANCY_ONE_c: '1'}), jr.get_trans(n=2))
 
     def test_get_trans_alts_oor(self):
         """
@@ -595,10 +602,13 @@ class GetTransTests(TestCase):
         jr = JSONRepo(REPO_DIR)
         jr.load_db(name)
 
-        self.assertIn({'1':FANCY_ONE_a, '':SAY_NO}, jr.get_trans())
-        self.assertIn({'1':FANCY_ONE_a, '':SAY_NO}, jr.get_trans(n=0))
-        self.assertIn({'1':FANCY_ONE_b, '':SAY_YES}, jr.get_trans(n=1))
-        self.assertIn({'1':FANCY_ONE_c, '':SAY_NO}, jr.get_trans(n=2))
+        dict_expt_1a = {'1':FANCY_ONE_a, '':SAY_NO}
+        self.assertIn(TranslationDict(dict_expt_1a), jr.get_trans())
+        self.assertIn(TranslationDict(dict_expt_1a), jr.get_trans(n=0))
+        dict_expt_1b = {'1':FANCY_ONE_b, '':SAY_YES}
+        self.assertIn(TranslationDict(dict_expt_1b), jr.get_trans(n=1))
+        dict_expt_1c = {'1':FANCY_ONE_c, '':SAY_NO}
+        self.assertIn(TranslationDict(dict_expt_1c), jr.get_trans(n=2))
 
     def test_get_trans_alts_reverse(self):
         """
@@ -621,10 +631,10 @@ class GetTransTests(TestCase):
         jr = JSONRepo(REPO_DIR)
         jr.load_db(name)
 
-        self.assertIn({'1': FANCY_ONE_a}, jr.get_trans())
-        self.assertIn({'1': FANCY_ONE_a}, jr.get_trans(n=0))
-        self.assertIn({'1': FANCY_ONE_b}, jr.get_trans(n=1))
-        self.assertIn({'1': FANCY_ONE_c}, jr.get_trans(n=2))
+        self.assertIn(TranslationDict({'1': FANCY_ONE_a}), jr.get_trans())
+        self.assertIn(TranslationDict({'1': FANCY_ONE_a}), jr.get_trans(n=0))
+        self.assertIn(TranslationDict({'1': FANCY_ONE_b}), jr.get_trans(n=1))
+        self.assertIn(TranslationDict({'1': FANCY_ONE_c}), jr.get_trans(n=2))
 
     def test_get_trans_cpoff(self):
         """

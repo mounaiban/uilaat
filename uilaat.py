@@ -459,7 +459,7 @@ class TranslationDict(dict):
 
     * Any output automatically inserts a copy of the key
       (or a Unicode character of the key's value for int keys)
-      where a replacement character is found.
+      where a replacement U+FFFC character is found.
 
     * One-character string keys are not allowed, but are
       automatically converted to their Unicode code point value
@@ -472,10 +472,16 @@ class TranslationDict(dict):
 
     def __init__(self, *args, **kwargs):
         self._out_default = SUBPOINT
-        if len(args) > 0:
-            self._out_default = args[0].get('', SUBPOINT)
         self._super = super()
-        self._super.__init__(*args, **kwargs)
+        self._super.__init__()
+        if len(args) > 0:
+            init_dict = args[0]
+            if isinstance(init_dict, dict):
+                self._out_default = init_dict.get('', SUBPOINT)
+                for k in init_dict.keys():
+                    self.__setitem__(k, init_dict[k])
+            else:
+                raise TypeError('only dicts are supported as initialisers')
 
     def __setitem__(self, key, value):
         if isinstance(key, str):
@@ -484,6 +490,8 @@ class TranslationDict(dict):
                 self._super.__setitem__('', value)
             elif len(key) == 1:
                 self._super.__setitem__(ord(key), value)
+            else:
+                self._super.__setitem__(key, value)
 
     def __getitem__(self, key):
         out = self._super.get(key, self._out_default)
@@ -497,14 +505,25 @@ class TranslationDict(dict):
         else:
             return out
 
-    def reset_default(self):
-        if '' in self:
-            self._out_default = self.__getitem__('')
-        else:
-            self._out_default = SUBPOINT
+    def get_dict(self):
+        """
+        Return a Python dict equivalent to the TranslationDict if one
+        can be created. This is possible only when a default translation
+        (referenced by the empty string key '') has not been set.
 
-    def set_default(self, value=None):
-        self._out_default = value
+        None will be returned instead if the conversion is not possible.
+
+        """
+        if '' in self:
+            return None
+        else:
+            temp = {}
+            for k in self.keys():
+                temp[k] = self.__getitem__(k)
+            return temp
+
+    def reset_default(self):
+        self._out_default = self.get('', SUBPOINT)
 
     @classmethod
     def from_dict(self, d):
@@ -591,7 +610,8 @@ class JSONRepo:
         or get_trans(0) if invoked for the first time since loading a database
 
         """
-        trans_dicts = [{}]
+        first_dict = TranslationDict({})
+        trans_dicts = [first_dict,]
         if self.current_db_name is None:
             return None
         # Handler Functions
