@@ -45,8 +45,8 @@ Unrecognised objects and values must be ignored.
 
 meta
 ****
-The *meta* object contains information not directly related to the
-text processing operation, but still influential to the operation.
+The *meta* object contains information that is not directly related,
+but still influential, to the text processing operation.
 
 The following values are recognised:
 
@@ -70,17 +70,48 @@ The ``bool`` means either ``true`` or ``false``.
 * ``reverse-out``: when set to ``true``, all text will be output in
   reverse order.
 
-* ``comments``: an object containing comment variables; the names of
-  these comment variables should be a language code. There should be
-  only **one comment per database**. Multiple accurate translations
-  of the same comment are counted as one comment. Inaccurate or
-  inconsistent translations are regarded as extra comments and must
-  be replaced or removed.
+* ``comments``: an object containing comments as strings; the names of
+  these comments should be an IETF BCP 47 language tag. There should be
+  only **one comment per database**. Multiple accurate language
+  translations of the same comment are counted as one comment. Inaccurate
+  translations are regarded as extra comments and must be removed.
 
-*Runtime variables* may be present in ``meta`` in in-memory DBs. These
-have names starting with an underscore, like ``_db_name``. Such
-variables are implementation-specific and system-dependent, and should
-not be present in exported DBs.
+  * The language tag syntax is specified in Section 2.1 of BCP 47.
+
+* ``copyright``: a string identifying the copyright owner of the
+  database; if the database is public domain, place the dedication in
+  this field.
+
+* ``license``: a URI referencing a document containing the full terms
+  and conditions of use of the DB.
+
+  * Examples for Creative Commons licenses:
+
+    * CC-BY-4.0: https://creativecommons.org/licenses/by/4.0/legalcode
+
+    * CC-BY-SA-4.0: https://creativecommons.org/licenses/by-sa/4.0/legalcode
+
+    * CC-BY-ND-4.0: https://creativecommons.org/licenses/by-nd/4.0/legalcode
+
+  * Example for Public Domain DBs:
+
+    * CC0: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+  * Examples for GNU Licenses:
+
+    * GPLv3: https://www.gnu.org/licenses/gpl-3.0.html
+
+    * GFDLv1.3: https://www.gnu.org/licenses/fdl-1.3.html
+
+  * For secret databases, use ``NDA`` (Unicode: U+0078, U+0068, U+0065),
+    even if no formal non-disclosure agreements are in effect.
+
+  * If this field is missing, ``NDA`` is assumed.
+
+*Runtime variables* may be present in ``meta``. These have names starting
+with an underscore, like ``_db_name``. Such variables are used as status
+registers by the software. They are implementation-specific and system-
+dependent, and should not be present in exported DBs.
 
 trans
 *****
@@ -324,6 +355,8 @@ References
 ==========
 Ecma International. ECMA-404: *The JSON Data Interchange Syntax.* 2nd Ed,
 2017 December.
+
+IETF Trust. BCP 47. https://tools.ietf.org/html/bcp47
 
 Unicode Consortium. *The Unicode Standard Version 13.0 - Core Specification.*
 Section 2.12, Section 3.9 (D91), Section 3.11 (D118-121).
