@@ -45,7 +45,7 @@ is_odd = lambda x : x%2 != 0
 
 # Surrogate helper functions
 #
-utf16_hs = lambda v:((((v & 0x1F0000)>>16)-1)<<10) | ((v & 0xFC00)>>10) | 0xD800
+utf16_hs = lambda v:((((v & 0x1F0000)>>16)-1)<<6) | ((v & 0xFC00)>>10) | 0xD800
     # get UTF-16 high surrogate ordinal from code point ordinal
 utf16_hs_c = lambda c: chr(utf16_hs(ord(c)))
     # get high surrogate from character
@@ -61,7 +61,7 @@ def surr(c):
     if len(c) != 1:
         raise TypeError('function takes only single characters')
     cor = ord(c)
-    if cor <= 0x10000 or cor < 0x10FFFF:
+    if cor <= 0x10000 or cor <= 0x10FFFF:
         return ''.join((utf16_hs_c(c), utf16_ls_c(c)))
     else:
         raise ValueError('surrogates are for code points 0x10000 to 0x10FFFF')
