@@ -1,0 +1,14 @@
+{
+    "meta": {
+        "reverse-trans": false,
+        "comments": {
+            "en-AU": "US-ASCII to wide monospaced text"
+        },
+        "authors": ["Moses Chong"],
+        "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+    },
+    "trans": {
+        "\uf811 wide_mono": [33, 127, 65248]
+    }
+}

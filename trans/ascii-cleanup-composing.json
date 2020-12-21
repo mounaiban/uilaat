@@ -1,0 +1,17 @@
+{
+    "meta": {
+        "reverse-trans": false,
+        "comments": {
+            "en-AU": "Remove composing characters from US-ASCII text"
+        },
+        "authors": ["Moses Chong"],
+        "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+    },
+    "trans": {
+        "\uf813 remove_composing" : [
+            [768, 879],
+            [null]
+        ]
+    }
+}

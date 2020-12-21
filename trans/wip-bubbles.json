@@ -1,0 +1,19 @@
+{
+    "meta": {
+        "reverse-trans": false,
+        "comments": {
+            "en-AU": "Circled characters. Adapted from Lunicode.js"
+        },
+        "authors": ["Robert Gerlach", "Moses Chong"],
+        "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+    },
+    "trans": {
+        "0": "🄋",
+        ".": "\u00a0⚬",
+        " ": "\u2003",
+        "\uf811 ASCII_DIGITS": [49, 57, 9412],
+        "\uf811 ASCII_UPPERCASE": [65, 90, 9333],
+        "\uf811 ASCII_LOWERCASE": [97, 122, 9327]
+    }
+}
