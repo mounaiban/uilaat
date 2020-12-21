@@ -70,6 +70,14 @@ The ``bool`` means either ``true`` or ``false``.
 * ``reverse-out``: when set to ``true``, all text will be output in
   reverse order.
 
+* ``authors``: a string array identifying contributors to the database;
+  the creator is always mentioned first, with subsequent contributors
+  mentioned *in order of time of first contribution*.
+
+  * If the DB is an adaptation, the creator of the original DB is
+    mentioned first, followed by the creator of the adaptation, then
+    followed by the other contributors.
+
 * ``comments``: an object containing comments as strings; the names of
   these comments should be an IETF BCP 47 language tag. There should be
   only **one comment per database**. Multiple accurate language
