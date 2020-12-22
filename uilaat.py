@@ -492,6 +492,8 @@ class TranslationDict(dict):
                 self._super.__setitem__(ord(key), value)
             else:
                 self._super.__setitem__(key, value)
+        elif isinstance(key, int):
+            self._super.__setitem__(key, value)
 
     def __getitem__(self, key):
         out = self._super.get(key, self._out_default)
@@ -638,13 +640,18 @@ class JSONRepo:
             # translations appearing later.
             if not isinstance(trans_list[0], dict):
                 raise ValueError("debug: dictionary not on top of trans list")
-            out = [trans_list[0],]
+            out = [{},]
             for t in trans_list:
                 if hasattr(t, 'dict'):
                     tmp = t.dict()
                     ktmp = tmp.keys()
                     for k in ktmp:
-                        out[0][k] = t[k]
+                        out[0][k] = tmp[k]
+                elif hasattr(t, 'get_dict'):
+                    tmp = t.get_dict()
+                    ktmp = tmp.keys()
+                    for k in ktmp:
+                        out[0][k] = tmp[k]
                 else:
                     out.append(t)
             return out
