@@ -7,6 +7,7 @@ Repository (JSONRepo) class
 """
 import hashlib
 import re
+from datetime import datetime
 from os import path
 from unittest import TestCase
 from json import JSONEncoder
@@ -326,6 +327,45 @@ class GetTransTests(TestCase):
         trans_expected = TranslationDict(db['trans'])
         trans = jr.get_trans()
         self.assertIn(trans_expected, trans)
+
+    def test_get_trans_onedict(self):
+        """
+        Get single-database translations using the one_dict option
+
+        """
+        name = 'test_get_trans_onedict'
+        db = {
+            'meta': {
+                'reverse-trans': False,
+                'version': VERSION,
+                'desc': {
+                    'en-au': 'Single-database get translation test',
+                },
+            },
+            'trans': {
+                'x': FANCY_Xm,
+                'y': FANCY_Ym,
+                'f': FANCY_F,
+                JSONRepo.CODE_REGEX+' '+'cat': [r'cat','\U0001f63b'],
+                JSONRepo.CODE_OFFSET+' '+'numerals': [48,50,1584],
+                JSONRepo.CODE_REGEX+' '+'dog': [r'dog','\U0001f436'],
+            }
+        }
+        write_json_file(name, db)
+        jr = JSONRepo(REPO_DIR)
+        jr.load_db(name)
+        dict_expected = {
+            ord('x'): FANCY_Xm, ord('y'): FANCY_Ym, ord('f'): FANCY_F,
+            48: chr(1632), 49: chr(1633), 50: chr(1634),
+        }
+        trans_expected = [
+            dict_expected,
+            [re.compile(r'cat'), '\U0001f63b'],
+            [re.compile(r'dog'), '\U0001f436'],
+        ]
+        # assertions
+        trans = jr.get_trans(one_dict=True)
+        self.assertEqual(trans, trans_expected)
 
     def test_get_trans_db_switch(self):
         """
@@ -752,4 +792,52 @@ class GetTransTests(TestCase):
         regs_b = trans_list_b[1]
         regs_b_expected = [re.compile(args[1][0]), args[1][1],]
         self.assertIn(regs_b_expected[1], regs_b)
+
+class SetRepoDirTests(TestCase):
+    """
+    Tests to verify repository directory setting routine and associated checks
+
+    """
+    # NOTE: As _set_repo_dir() method is called during __init__(), not all
+    # tests herein will call _set_repo_dir() directly.
+    def setUp(self):
+        name = 'test_set_repo_dir'
+        db = {
+            'meta': {
+                'reverse-trans': False,
+                'version': VERSION,
+                'desc': {
+                    'en-au': 'Dummy translation DB to verify repo detection',
+                },
+            },
+            'trans': {'*': '\U0001f4a0'}
+        }
+        write_json_file(name, db)
+
+    def test_set_repo_dir(self):
+        """
+        Set path to a valid repository
+
+        """
+        # Exceptions should be raised if any trouble happens. 
+        jr = JSONRepo(REPO_DIR)
+
+    def test_set_repo_dir_not_repo(self):
+        """
+        Set path to a non-repository directory
+
+        """
+        # NOTE: This test will fail if .json files are left in the
+        # tests module directory in the source tree.
+        with self.assertRaises(FileNotFoundError):
+            jr = JSONRepo('.')
+
+    def test_set_repo_dir_not_found(self):
+        """
+        Set path to a non-existent directory
+
+        """
+        fname = f"nosuchrepo-{datetime.now().timestamp()}"
+        with self.assertRaises(NotADirectoryError):
+            jr = JSONRepo(fname)
 

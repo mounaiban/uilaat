@@ -28,7 +28,7 @@ A mini-library for working with decorative Unicode text
 import re
 from functools import reduce
 from json import JSONDecoder
-from os import path
+from os import listdir, path
 from sfunc import sfunc_from_covar, sfunc_from_list, sfunc_from_re, \
     sfunc_from_dict, SCOPE_CHAR, SCOPE_STR, SCOPE_NOP # TODO: Remove sfunc's
 from warnings import warn
@@ -568,12 +568,14 @@ class JSONRepo:
         """
         self.current_db_name = None
         # Private variables
-        self._repo_dir = repo_dir
+        self._repo_dir = None
         self._current_trans = {}
         self._used_maketrans = False  # TODO: remove this?
         self._tmp = []
         self._filename_memo = []
         self._fh = None
+
+        self._set_repo_dir(repo_dir)
 
     def __repr__(self):
         name = self.__class__.__name__
@@ -602,13 +604,17 @@ class JSONRepo:
         get_trans(1) == {'a': '4', 'b':'\ua7b4', 'c': '\U0001f30a'}
         get_trans(2) == {'a': '4', 'b':'\U0001d7ab', 'c': '<'}
 
+        get_trans() with no parameters returns get_trans(0).
+
         The maketrans option requests dictionaries that are ready for use
         with str.translate(), these use decimal codepoint values for keys
         instead of characters or strings.
 
         get_trans(0, maketrans=True) == {97: '4', 98:'|3', 99: '<'}
 
-        get_trans() with no parameters returns get_trans(0).
+        The one_dict option condenses all dict-like lookups in the DB
+        into a single plain dict, placed first in the list of translation
+        objects.
 
         """
         first_dict = TranslationDict({})
@@ -787,6 +793,21 @@ class JSONRepo:
         else:
             return trans_dicts
 
+    def _set_repo_dir(self, rdpath):
+        if not path.isdir(rdpath):
+            self._repo_dir = None
+            msg = f"{rdpath}: directory not found, or not a directory"
+            raise NotADirectoryError(msg)
+        else:
+            fnames = listdir(rdpath)
+            fmap = filter(lambda x:x.endswith(SUFFIX_JSON), fnames)
+            jfnames = [n for n in fmap]
+            if len(jfnames) <= 0:
+                msg = f"{rdpath}: no .json files found in directory"
+                raise FileNotFoundError(msg)
+            else:
+                self._repo_dir = rdpath
+
     def load_db(self, db_name):
         """
         Loads a database file from the repository.
@@ -802,6 +823,8 @@ class JSONRepo:
         loading process.
 
         """
+        if self._repo_dir is None:
+            raise FileNotFoundError('repository not set')
         self._current_trans = None
         self._tmp.clear()
         self._filename_memo.clear()
