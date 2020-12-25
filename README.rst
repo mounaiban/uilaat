@@ -7,11 +7,11 @@ What's This?
 ============
 UILAAT is a Unicode text processing library for working with decorative
 Unicode text, artistic communication devices produced by appropriation
-of graphemes between languages and superfluous use of non-word symbols and
-combining characters.
+of graphemes between languages and superfluous use of non-word symbols
+and combining characters.
 
 UILAAT is yet another chapter of the history of an Internet tradition
-that resulted from the encounter between an ambitious goal, to 
+that resulted from the encounter between an ambitious goal, to
 proliferate telegraphic typography support for every known (and unknown)
 written language system (along with their typographic ornaments), and
 the human fascination with the foreign and exotic.
@@ -22,30 +22,14 @@ for full terms and conditions.*
 
 Unicode is a registered trademark of Unicode, Inc.
 
-Rationale 
-=========
-*Also known as: why create yet another fancy Unicode text library?*
-
-This project was inspired by contemporaries such as Lunicode.js and
-LingoJam. However, it attempts a different approach towards the art
-and science of Unicode mangling:
-
-1. It aims for usability on large-scale processing operations.
-
-2. A greater emphasis is placed on the linguistic aspects of
-   Unicode decorations. The project aims to curate the relationships
-   and similarities between grapheme substitutes.
-
-3. Amusement value is not a priority 😞
-
 Demo
 ====
 *Also known as: what can we do with this?*
 
 Well, actually not a lot for now...
 
-Interactive Demo
-****************
+A Really Short Intro
+~~~~~~~~~~~~~~~~~~~~
 There is a demo module ``demos/demo.py`` that is designed for use in
 an interactive shell. You can access it from the repo root (same
 directory as the main module ``uilaat.py``) by running:
@@ -55,62 +39,122 @@ directory as the main module ``uilaat.py``) by running:
     python -im demos.demo
 
 If your system is correctly set up, you should be inside the Python
-REPL shell. There will be several demo text generators. Try ``aesthetic``
-for a start:
+REPL shell. You will have instant access to a *Text Processor* object
+named ``demo``.
+
+The TP should be linked to two *translation repositories*; these links
+are kept in the ``repos`` dictionary:
 
 ::
 
-    >>> aesthetic.print("quick brown fox '92-'98")
-    ｑｕｉｃｋ ｂｒｏｗｎ ｆｏｘ ＇９２－＇９８  
+    >>> demo.repos
+    {'trans': ..., 'asdf_notfound_404': ...}
 
-There are several other generators in ``demos/demo.py``, have a look
-inside to find out what they are...
+    # system and version-dependent details will not be shown in
+    # this example and all subsequent examples...
 
-The generators have two methods of interest: ``get_text()`` and ``print()``,
-the former returns strings for use with other modules, while the latter
-prints the text to the screen, well, to the terminal's best ability.
+The built-in translation repository is called ``trans``, while the other,
+``asdf_notfound_404`` is a dummy repo intended to test error handling
+routines.
 
-You can also chain the text generators to apply, to a certain extent,
-decorations from multiple generators at once:
+Translation repositories are simply interfaces to databases that contain
+*translations*, or details on how to mangle text.
+
+To list all translations, call:
 
 ::
 
-    >> witch_aesthetic = witch + aesthetic
-    >> witch_aesthetic.print('trance coven')
+    >>> demo.list_trans()
+    [...]
 
-Please be aware that doing this comes at a *huge* performance cost.
-Processing a string of a hundred thousand characters in the example
-generator above was found to take about half a minute, on a low-end 
-laptop PC running Fedora. The processing time increases dramatically
-for each extra generator chained, or as the size of the string
-increases.
+You should have a list of fully-qualified names of some translations.
 
-Using With Other Modules
-************************
-Alternatively, you can copy the main module into your project and
-``import`` the module in your own code. Look inside the main module file
-for more details on how things are currently being implemented. Can
-you find a way of creating your own text generator?
+Let's Fancy Text 〜⭐ﾌｧﾝｼｰﾃｯｸｽﾄ⭐しまてょっ〜
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The demo Text Processor is able to run one or more translations on
+input text. Get started by adding the ``trans.ascii-aesthetic``
+translation:
 
+::
+
+    >>> demo.add_trans('trans.ascii-aesthetic')
+
+Verify that you have added the translations by peeking into the
+``translations`` attribute:
+
+::
+
+    >>> demo.translations
+    {'trans.ascii-aesthetic': ... }
+
+Note that some translations may contain a large number of *mappings*,
+making them hard to read in the REPL shell. Here's an alternative that
+shows only the names:
+
+::
+
+    >>> list(demo.translations.keys())
+    ['trans.ascii-aesthetic', ...]
+
+    # quick Python quiz: what data type is demo.translations, and
+    # what are you doing with list()?
+
+Now that you have added the translations, it's time to make some fancy
+text with the ``translate()`` method:
+
+::
+
+    >>> demo.translate("quick brown fox '92-'98")
+    'ｑｕｉｃｋ ｂｒｏｗｎ ｆｏｘ ＇９２－＇９８'
+
+How's that for a start? 🦊
+
+Rationale
+=========
+*Also known as: why create yet another fancy Unicode text library?*
+
+This project was inspired by contemporaries such as Lunicode.js and
+LingoJam, but with a different take on the art and science of text
+mangling:
+
+1. A stronger emphasis is placed on the linguistic aspect of fancy text:
+   this project attempts to curate the relationships between grapheme
+   substitutes, and possibly spark public interest and appreciation of
+   language studies.
+
+2. The software in this project is intended to be usable entirely
+   offline; this is not a web API or any other kind of RPC software
+   service run over the Internet.
+
+   * Any hacker is welcome to adapt the software herein to run a
+     web service (and get rich doing so) given that the software is
+     free and open-source under GPLv3 T&Cs, but such use is beyond
+     the scope of this project.
+
+3. Amusement value is not the highest priority 😞
 
 TODO
 ====
-There are perhaps only two issues with this library at the moment;
-firstly, it's **slow** and secondly, it's *incomplete*.
+We've got big ambitions, but here are the ones that matter most now:
 
-Most Wanted Features
-********************
-* **Preset Translation Databases**: a ready-to-use repository of
-  common substitutions would add to the out-of-box usefulness of
-  this library.
+* **More Preset Translation Databases**: more types of fancy text,
+  and possibly cleanup translations to convert fancy text back to
+  clear text for screen readers or note takers.
 
-* **Multi-Code Point Targets**: currently, only single code point
-  characters can be targeted for substitution without the use of
-  computationally-expensive regular expressions. Overcoming this
-  limitation would make things a lot easier.
+* **Translation Database Creation Tools**: creating a translation
+  database is a laborious endeavour but having some helper tools,
+  such as a translation manager or a graph visualiser, can make it
+  easier.
 
-* **ＰＥＲＦＯＲＭＡＮＣＥ**: several bottlenecks are suspected in
-  the handling of string-scoped functions in the main module,
-  a reduction of function calls in the inner loops is currently
-  believed to be able speed things up a bit.
+* **User Apps**: desktop and mobile apps for GTK, maybe Android and
+  iOS, so that users may generate text automatically on-device at the
+  touch of a button. Ideas include:
+
+  * clipboard monitor that automatically mangles copied text
+
+  * input methods to generate fancy text as they are typed
+
+* **Multi-Code Point Targets**: the ability to handle multi-code point
+  targets in translations would be really nice, as these can currently
+  only be done with computationally-expensive regular expressions.
 
