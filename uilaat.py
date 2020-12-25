@@ -794,21 +794,59 @@ class JSONRepo:
             return trans_dicts
 
     def _set_repo_dir(self, rdpath):
-        if not path.isdir(rdpath):
-            self._repo_dir = None
-            msg = f"{rdpath}: directory not found, or not a directory"
-            raise NotADirectoryError(msg)
+        db_names = self.list_trans(rdpath)
+        if len(db_names) <= 0:
+            msg = f"{rdpath}: no .json files found in directory"
+            raise FileNotFoundError(msg)
         else:
-            fnames = listdir(rdpath)
-            fmap = filter(lambda x:x.endswith(SUFFIX_JSON), fnames)
-            jfnames = [n for n in fmap]
-            if len(jfnames) <= 0:
-                msg = f"{rdpath}: no .json files found in directory"
-                raise FileNotFoundError(msg)
-            else:
-                self._repo_dir = rdpath
+            self._repo_dir = rdpath
+
+    def list_trans(self, rdpath=None, incl='names'):
+        """
+        List or count available translations in the Repository.
+        In a JSONRepo, there is only one translation per database, so
+        this method lists translations by listing DBs.
+
+        Any file with .json suffix in a repository's directory is assumed
+        to be a valid DB.
+
+        If rdpath is None, self._repo_dir is used instead.
+
+        Valid options for incl (str):
+
+        * 'name': include DB names for use with load_db()
+
+        * 'filenames': include DB names including .json suffix
+
+        * 'count': returns the number of DBs only
+
+        """
+        msg_notfound = f"{rdpath}: repository not found, deleted or moved"
+        if rdpath is None:
+            if self._repo_dir is not None:
+                if path.isdir(self._repo_dir):
+                    rdpath = self._repo_dir
+                else:
+                    raise NotADirectoryError(msg_notfound)
+        elif not path.isdir(rdpath):
+            self._repo_dir = None
+            raise NotADirectoryError(msg_notfound)
+        fnames = listdir(rdpath)
+        fmap = filter(lambda s:s.endswith(SUFFIX_JSON), fnames)
+        if incl == 'names':
+            fmap_out = map(lambda s:s.split('.json')[0], fmap)
+            return [n for n in fmap_out]
+        elif incl == 'filenames':
+            return [n for n in fmap]
+        elif incl == 'count':
+            return len([n for n in fmap])
+        else:
+            raise ValueError('invalid option for incl= argument')
 
     def load_db(self, db_name):
+        # TODO: Change to load_trans() to be more intuitive for
+        # future support for other DBMS (e.g. SQL, MongoDB, OrientDB...)
+        # that can store multiple translations per database
         """
         Loads a database file from the repository.
 
@@ -824,7 +862,7 @@ class JSONRepo:
 
         """
         if self._repo_dir is None:
-            raise FileNotFoundError('repository not set')
+            raise NotADirectoryError('repository directory not set')
         self._current_trans = None
         self._tmp.clear()
         self._filename_memo.clear()
