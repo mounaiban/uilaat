@@ -24,33 +24,44 @@ A small collection of tools for interactive use of the library
 #
 
 import pdb
-import uilaat
+from uilaat import JSONRepo
 from timeit import timeit
-from warnings import filterwarnings
+from warnings import filterwarnings, warn
 
-def dump_page(plane, page):
+def dump_code_page(plane, page):
     """
-    Naively dumps an area of 256 Unicode code points as a string,
-    without regard for a code point's status as a reserved or
-    non-character pursuant to the Section 3.4.D10a of the Unicode
-    Standard. Returns None if requested code points are out of range.
+    Naively dumps a code page of 256 Unicode code points as a string,
+    without regard for a code point's properties.
+
+    Use for testing translation databases.
+
+    Non-characters such as control, replacement, reserved and 0x*FFFF
+    code points will be returned. However, the ASCII-compatible control
+    characters in the first code page 0x0000 -> 0x00FF will not be
+    returned to avoid breaking terminals.
 
     Arguments
     ---------
-    * plane - (int) index of the 65536-code point block, corresponding
-        to the highest 16 bits of the code point value. See Section 2.8
-        of the Standard. Range allowed: 0 <= plane <= 10
-    
-    * page - (int) the value of the page, corresponding to the 9th to
-        the 16th bit of the code point's value.
+    All ints are shown in hexadecimal, but decimal equivalents are also
+    accepted.
 
-    Use for testing generators or substitution functions.
+    * plane - (int) index of the 65536-code point block, corresponding
+        to the highest four bits of the 21-bit code point value.
+        See Section 2.8 of the Unicode Standard Core Specification.
+        Range allowed: 0x0 <= plane <= 0x10
+
+    * page - (int) the value of the code page, corresponding to bits
+      8/9 to 15/16 of the code point value.
+
+    Example: to dump U+3000 to U+30FF: plane=0x0, page=0x30; to dump
+    U+21000 to U+210FF: plane=0x2, page=0x10
+
     """
     if plane < 0 or page < 0:
         return None
     if plane > 10 or page > 0xFF:
         return None
-    out = '' 
+    out = ''
     if plane == 0 and page == 0:
         # Special Dumping Procedure for Plane 0 Page 0 (the ASCII page):
         # Avoid dumping the code points that are identical to ASCII
@@ -67,185 +78,159 @@ def dump_page(plane, page):
             out = ''.join((out, chr(i),))
     return out
 
-class DemoTextGenerator:
+def dump_page(plane, page):
+    warn('dump_page() will be renamed to dump_code_page()', DeprecationWarning)
+    return dump_code_page(plane, page)
+
+class DemoTP:
     """
-    Decorative text generator object which serves as an object-oriented
-    interface to the rather functional core module.
+    Text processor object, for use as a core component of an interactive
+    application.
 
-    This allows users who are prefer an object-oriented programming
-    approach to experiment with the library in an interactive environment,
-    or even in an actual application.
     """
-    # TODO: If possible, implement an acutal Python generator that yields
-    # chars for improved memory efficiency.
-    def __init__(self):
-        self._args = ()
-        self._raw = (lambda s:s, None,)
-    
-    def __add__(self, other):
+    def __init__(self, repo_dict={}):
         """
-        These decorative text generators can be combined into a chain
-        using the addition operator '+'. The result is a single text
-        generator that applies decorations from each of the separate
-        generators.
-        
-        Notes
-        -----
-        Please be aware that combinations are not commutative; combining
-        generators in a different order often yields different results.
-        Order of processing takes place in the order which the constituent
-        generators were combined.
+        To create a DemoTP:
+        DemoTP() => empty DemoTP
+        DemoTP(dict) => DemoTP with preloaded repositories
 
-        Generators down the chain may be rendered ineffective, if other
-        generators up the chain cause intermediate results to fall
-        completely out of the target range of a subsequent generator.
+        Format for dict: {REPO_NAME: REPO_OBJECT, ...}
+        Only JSONRepo's are supported as repo objects at the moment.
+
         """
+        self.repos = repo_dict
+        self.translations = {}
 
-        if isinstance(other, self.__class__) is False:
-            raise TypeError('cannot add with other object types')
-        if isinstance(self._args[0], (tuple, list,)) is False:
-            ar_self = ((self._args),)
-        else:
-            ar_self = self._args
-        if isinstance(other._args[0], (tuple, list,)) is False:
-            ar_other = ((other._args),)
-        else:
-            ar_other = other._args
-        ar = ar_self + ar_other 
-        return self.from_args_multi(ar)
-
-    def __repr__(self):
-        fmt = '{}{}'
-        rs = fmt.format(self.__class__.__name__, self._args)
-        return rs
-
-    @classmethod
-    def from_args(self, *args):
+    def add_repo(self, repo):
         """
-        Create a decorative text generator object, guessing the
-        substitution function to use from the arguments.
+        Add a single repository. Only JSONRepo's are supported at
+        this time.
+
         """
-        raw = self._get_raw(*args)
-        out = self.from_raw(raw)
-        out._args = args
+        if not isinstance(repo, JSONRepo):
+            err = {
+                'msg': 'only JSONRepo\'s are currently supported',
+                'repo-type': type(repo)
+            }
+            raise TypeError(err)
+        self.repos[repo._repo_dir] = repo
+            # TODO: implement non-private alternative to repo._repo_dir
+
+    def add_trans(self, trans_name, n=0):
+        """
+        Add a translation to the translation list.
+
+        If there are two or more repositories loaded, and there are
+        translations that have the same name across the repositories,
+        use a fully qualified name like: 'REPO.TRANS', where REPO is
+        the name of the repository, and TRANS is the name of the
+        translation.
+
+        If alternate translations are available, those can be selected
+        with different n-values.
+
+        Use translate() to generate text.
+
+        """
+        # attempt to detect and handle FQ translation name
+        FQ_SEP = '.'
+        if FQ_SEP in trans_name:
+            alrepo = trans_name.split(FQ_SEP)[0]
+            repo_names = tuple(self.repos.keys())
+            if alrepo in repo_names:
+                repo = self.repos[alrepo]
+                name_remn = trans_name[trans_name.index(FQ_SEP)+1:]
+                repo.load_db(name_remn)
+                self.translations[trans_name]=repo.get_trans(n=n,one_dict=True)
+        # if a non-FQ translation name is used, look through all
+        # added repos and get the first translation found
+        for name in self.list_repos(incl='valid'):
+            try:
+                repo = self.repos[name]
+                    # load_db() raises FileNotFoundError if trans
+                    # not found
+                repo.load_db(trans_name)
+                fqname = ''.join((name, '.', trans_name))
+                self.translations[fqname] = repo.get_trans(n=n, one_dict=True)
+            except FileNotFoundError:
+                continue
+
+    def list_repos(self, incl='valid'):
+        """
+        Gets a list of names of repositories. Valid options for get are:
+
+        * 'valid': list names of valid repositories.
+
+        * 'all': list names of all loaded repositories, valid repositories
+          first, followed by invalid repositories in a nested list.
+          Invalid repositories point to a non-existent or inaccessible
+          directory.
+
+        """
+        if not isinstance(self.repos, dict):
+            err = {
+                'msg': 'repo dictionary is not of type dict',
+                'repo-type': type(self.repos)
+            }
+            raise TypeError(err)
+        out = []
+        out_invalid = []
+        keys = self.repos.keys()
+        try:
+            for k in keys:
+                if self.repos[k].list_trans(incl='count') >= 0:
+                    out.append(k)
+        except NotADirectoryError:
+            # invalid repository encountered
+            out_invalid.append(k)
+        finally:
+            if len(out_invalid) > 0 and incl == 'all':
+                out.append(out_invalid)
+            return out
+
+    def list_trans(self):
+        """
+        Return a list of names of translations from all valid repositories
+        added to the text processor.
+
+        """
+        repo_names= self.list_repos(incl='valid')
+        out = []
+        for r in repo_names:
+            repo = self.repos[r]
+            trans_names = repo.list_trans(incl='names')
+            for t in trans_names:
+                out.append(f"{r}.{t}")
         return out
 
-    @classmethod
-    def from_args_multi(self, reqs):
-        """
-        Create a Multi-Substitution text generator object from a
-        list of argument tuples.
-        """
-        raws = []
-        for r in reqs:
-            raws.append(self._get_raw(*r))
-        out = self()
-        out._raw = uilaat.sfunc_from_list(raws)
-        out._args = reqs
-        return out
+    def sample(self, plane, page, order=[]):
+        dump = dump_code_page(plane, page)
+        return self.translate(dump, order)
 
-    @classmethod
-    def from_raw(self, raw):
-        """
-        Create a decorative text generator object from the raw
-        call of a substitution function creator.
-        """
-        out = self()
-        if raw[1] == uilaat.SCOPE_CHAR:
-            out._raw = uilaat.sfunc_from_list((raw,))
-        elif raw[1] == uilaat.SCOPE_STR:
-            out._raw = raw
-        else:
-            raise RuntimeError("unknown substitution scope")
-        out._args = (None, None, {'direct_from_raw':True})
-        return out
-    
-    def get_text(self, orig_text):
-        """
-        Return the mangled text string. Note that strings are not
-        yet ready to be copypasted as when strings are viewed
-        unprocessed invisible characters show up as escape codes.
-        """
-        if isinstance(orig_text, str) is False:
-            raise TypeError('only str-like input supported')
-        return self._raw[0](orig_text)
+    def translate(self, s, order=[]):
+        def do_trans(s):
+            tmp = s
+            for tn in order:
+                # TODO: pre-process strings with regexes according to
+                # trans spec
+                tmp = tmp.translate(self.translations[tn][0])
+            return tmp
 
-    def print(self, orig_text):
-        """
-        Return the mangled text in ready-to-copypaste form :)
-        """
-        print(self.get_text(orig_text))
+        if len(order) == 0:
+            order = list(self.translations.keys())
+        return do_trans(s)
 
-    @classmethod
-    def _get_raw(self, *args):
-        """
-        Orders a substitution function from the main module with
-        metadata intact, guessing the substitution function type
-        from the arguments
-        """
-        raw = None
-        if len(args) == 3:
-            if isinstance(args[2], dict) is True:
-                raw = uilaat.sfunc_from_dict(*args) 
-            elif isinstance(args[2], int) is True:
-                raw = uilaat.sfunc_from_covar(*args)
-        elif isinstance(args, (list, tuple,)) is True:
-            raw = uilaat.sfunc_from_re(*args)
-        else:
-            fmt = 'could not determine function type from args: {}'
-            msg = fmt.format(args)
-            raise TypeError(msg)
-        return raw
+# Ready-to-play demo objects
+#
+jr = JSONRepo('trans')
 
+jr_invalid = JSONRepo('trans')
+jr_invalid._repo_dir = 'asdf_notfound_404'
 
-# Ready-to-Use Demo Objects
-#
-# aesthetic - outputs wide monospaced text, as seen on Shift-JIS
-aesthetic = DemoTextGenerator.from_args(33, 127, 65248)
-#
-# black_cat - add a Phaistos Disc cat before instances of phrase 'black cat'
-black_cat = DemoTextGenerator.from_args(r'black cat', '𐇬\ufffc')
-#
-# bubbles - circled text, limited version of the Lunicode.js original
-bubbles_dict = {'0':'🄋', '.':'\u00a0⚬', ' ':'\u2003', '\n':'\n'}
-bubbles_lite_config = (
-    (32, 48, bubbles_dict), # zero, period and whitespace exceptions
-    (49, 57, 9412),      # numbers 1-9
-    (65, 90, 9333),      # uppercase
-    (97, 122, 9327),     # lowercase
-)
-bubbles_lite = DemoTextGenerator.from_args_multi(bubbles_lite_config)
-#
-# bubble_black_cat_aesthetic - combined text generator demo
-black_cat_aesthetic = black_cat + aesthetic
-#
-# squares - lazy port of Lunicode.js original
-squares_config = (
-    32,
-    687,
-    {
-        '':'\ufffc\u20de\u00a0',
-        ' ':' ',   # another way of excluding characters
-        '\n':'\n', # from substitution
-    },
-)
-squares = DemoTextGenerator.from_args(*squares_config)
-#
-# witch - noisy Witch House-esque text effect
-witch_config = (
-    None,
-    None,
-    {
-        '':'\ufffc\u0353\u034f\u036f',
-        'A':'🜂',
-        'a':'🜂',
-        ' ':' \u1dd1',
-        '*':'⛧',
-    },
-)
-witch = DemoTextGenerator.from_args(*witch_config)
+demo = DemoTP({'trans':jr, 'asdf_notfound_404': jr_invalid})
 
 # REPL Setup Routine
 #
-filterwarnings('always')
+if __name__ == 'main':
+    filterwarnings('always')
 
