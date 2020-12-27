@@ -581,11 +581,21 @@ class JSONRepo:
         name = self.__class__.__name__
         return "{}('{}')".format(name, self._repo_dir)
 
-    def get_meta(self, key):
+    def get_meta(self, key=None):
         """
-        Return a metadata item from the currently loaded database.
+        Return metadata items from the currently loaded database. If
+        key is None, the whole metadata dict for the currently-loaded
+        DB is returned.
+
+        If a DB 'x' includes data from another using links in the
+        include property, the metadata from DB 'x' takes precedence
+        over any other linked DB.
+
         """
-        return (self._tmp[-1])['meta'].get(key)
+        if key is None:
+            return self._tmp[-1]['meta']
+        else:
+            return self._tmp[-1]['meta'].get(key)
 
     def get_trans(self, n=None, maketrans=False, one_dict=False):
         """
