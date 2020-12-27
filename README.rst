@@ -72,20 +72,20 @@ You should have a list of fully-qualified names of some translations.
 Let's Fancy Text 〜⭐ﾌｧﾝｼｰﾃｯｸｽﾄ⭐しまてょっ〜
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The demo Text Processor is able to run one or more translations on
-input text. Get started by adding the ``trans.ascii-aesthetic``
+input text. Get started by adding the ``trans:ascii-aesthetic``
 translation:
 
 ::
 
-    >>> demo.add_trans('trans.ascii-aesthetic')
+    >>> demo.add_trans('trans:ascii-aesthetic')
 
-Verify that you have added the translations by peeking into the
-``translations`` attribute:
+Verify that you have added the translations by reviewing the applied
+*operations*, by peeking into the ``trans_ops`` attribute:
 
 ::
 
     >>> demo.translations
-    {'trans.ascii-aesthetic': ... }
+    {'trans:ascii-aesthetic': ... }
 
 Note that some translations may contain a large number of *mappings*,
 making them hard to read in the REPL shell. Here's an alternative that
@@ -94,7 +94,7 @@ shows only the names:
 ::
 
     >>> list(demo.translations.keys())
-    ['trans.ascii-aesthetic', ...]
+    ['trans:ascii-aesthetic', ...]
 
     # quick Python quiz: what data type is demo.translations, and
     # what are you doing with list()?

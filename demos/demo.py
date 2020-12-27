@@ -30,15 +30,22 @@ from warnings import filterwarnings, warn
 
 def dump_code_page(plane, page):
     """
-    Naively dumps a code page of 256 Unicode code points as a string,
-    without regard for a code point's properties.
+    Naively dumps a code page of Unicode code points as a string, without
+    regard for a code point's properties.
 
-    Use for testing translation databases.
+    A code page is defined as a series of 256 code points starting from
+    U+0000, or any code point value that is a multiple of 256. Borrowing
+    from 8-bit encoding conventions, the Unicode code space is herein
+    regarded as an amalgamation of 256-point code pages.
 
+    Use this function for testing translation operations.
+
+    Notes
+    -----
     Non-characters such as control, replacement, reserved and 0x*FFFF
     code points will be returned. However, the ASCII-compatible control
-    characters in the first code page 0x0000 -> 0x00FF will not be
-    returned to avoid breaking terminals.
+    characters in the first code page of plane 0, 0x0000 -> 0x00FF, will
+    not be returned to avoid malfunctions in terminals.
 
     Arguments
     ---------
@@ -79,6 +86,7 @@ def dump_code_page(plane, page):
     return out
 
 def dump_page(plane, page):
+    # support use of deprecated function
     warn('dump_page() will be renamed to dump_code_page()', DeprecationWarning)
     return dump_code_page(plane, page)
 
@@ -88,6 +96,7 @@ class DemoTP:
     application.
 
     """
+    FQ_SEP = ':'
     def __init__(self, repo_dict={}):
         """
         To create a DemoTP:
@@ -99,7 +108,8 @@ class DemoTP:
 
         """
         self.repos = repo_dict
-        self.translations = {}
+        self.trans_ops = {}
+        self.meta = {}
 
     def add_repo(self, repo):
         """
@@ -118,42 +128,51 @@ class DemoTP:
 
     def add_trans(self, trans_name, n=0):
         """
-        Add a translation to the translation list.
+        Add a translation to the operations list.
 
         If there are two or more repositories loaded, and there are
         translations that have the same name across the repositories,
-        use a fully qualified name like: 'REPO.TRANS', where REPO is
+        use a fully qualified name like: 'REPO:TRANS', where REPO is
         the name of the repository, and TRANS is the name of the
         translation.
 
         If alternate translations are available, those can be selected
         with different n-values.
 
+        Please avoid the use of the colon ':' character in the names
+        of any translation or database.
+
         Use translate() to generate text.
 
         """
         # attempt to detect and handle FQ translation name
-        FQ_SEP = '.'
-        if FQ_SEP in trans_name:
-            alrepo = trans_name.split(FQ_SEP)[0]
+        tname_tmp = trans_name
+        repo = None
+        if self.FQ_SEP in tname_tmp:
+            alrepo = tname_tmp.split(self.FQ_SEP)[0]
             repo_names = tuple(self.repos.keys())
             if alrepo in repo_names:
                 repo = self.repos[alrepo]
-                name_remn = trans_name[trans_name.index(FQ_SEP)+1:]
+                len_sep = len(self.FQ_SEP)
+                name_remn = tname_tmp[trans_name.index(self.FQ_SEP)+len_sep:]
                 repo.load_db(name_remn)
-                self.translations[trans_name]=repo.get_trans(n=n,one_dict=True)
         # if a non-FQ translation name is used, look through all
         # added repos and get the first translation found
-        for name in self.list_repos(incl='valid'):
-            try:
-                repo = self.repos[name]
-                    # load_db() raises FileNotFoundError if trans
-                    # not found
-                repo.load_db(trans_name)
-                fqname = ''.join((name, '.', trans_name))
-                self.translations[fqname] = repo.get_trans(n=n, one_dict=True)
-            except FileNotFoundError:
-                continue
+        else:
+            for name in self.list_repos(incl='valid'):
+                try:
+                    repo = self.repos[name]
+                    repo.load_db(trans_name)
+                        # load_db() raises FileNotFoundError if trans
+                        # not found
+                    tname_tmp = ''.join((name, '.', trans_name))
+                    self.trans_ops[tname_tmp] = repo.get_trans(
+                        n=n, one_dict=True
+                    )
+                except FileNotFoundError:
+                    continue
+        self.trans_ops[tname_tmp]=repo.get_trans(n=n,one_dict=True)
+        self.meta[tname_tmp] = repo.get_meta()
 
     def list_repos(self, incl='valid'):
         """
@@ -176,22 +195,21 @@ class DemoTP:
         out = []
         out_invalid = []
         keys = self.repos.keys()
-        try:
-            for k in keys:
+        for k in keys:
+            try:
                 if self.repos[k].list_trans(incl='count') >= 0:
                     out.append(k)
-        except NotADirectoryError:
-            # invalid repository encountered
-            out_invalid.append(k)
-        finally:
-            if len(out_invalid) > 0 and incl == 'all':
-                out.append(out_invalid)
-            return out
+            except NotADirectoryError:
+                # invalid repository encountered
+                out_invalid.append(k)
+        if len(out_invalid) > 0 and incl == 'all':
+            out.append(out_invalid)
+        return out
 
     def list_trans(self):
         """
-        Return a list of names of translations from all valid repositories
-        added to the text processor.
+        Return a list of names of available translations from all valid
+        repositories added to the text processor.
 
         """
         repo_names= self.list_repos(incl='valid')
@@ -200,24 +218,49 @@ class DemoTP:
             repo = self.repos[r]
             trans_names = repo.list_trans(incl='names')
             for t in trans_names:
-                out.append(f"{r}.{t}")
+                out.append(f"{r}{self.FQ_SEP}{t}")
         return out
 
     def sample(self, plane, page, order=[]):
+        """
+        Returns a string of consecutive code points for previewing the
+        final effects of the selected translation operations.
+
+        The definition of plane is specified in the Unicode Standard
+        Core Specification (e.g. plane 0x0 is U+0000 to U+FFFF inclusive,
+        plane 0x1 is U+10000 to U+1FFFF, and so on...)
+
+        A page (short for code page) is a series of 256 code points
+        starting at U+0000 or any other code point value that is a
+        multiple of 256.
+
+        """
         dump = dump_code_page(plane, page)
         return self.translate(dump, order)
 
     def translate(self, s, order=[]):
+        """
+        Make some fancy text!
+
+        Returns a string with all selected translation operations applied
+
+        """
         def do_trans(s):
             tmp = s
             for tn in order:
                 # TODO: pre-process strings with regexes according to
                 # trans spec
-                tmp = tmp.translate(self.translations[tn][0])
+                tmp = tmp.translate(self.trans_ops[tn][0])
+                if self.meta[tn].get('reverse-out', False) is True:
+                    # handle reversed output
+                    tmp_rev = ''
+                    for c in tmp:
+                        tmp_rev = ''.join((c, tmp_rev))
+                        tmp = tmp_rev
             return tmp
 
         if len(order) == 0:
-            order = list(self.translations.keys())
+            order = list(self.trans_ops.keys())
         return do_trans(s)
 
 # Ready-to-play demo objects
