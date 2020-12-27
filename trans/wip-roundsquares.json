@@ -1,0 +1,19 @@
+{
+    "meta": {
+        "reverse-trans": false,
+        "comments": {
+            "en-AU": "Characters enclosed in squares. Adapted from Lunicode.js"
+        },
+        "authors": ["Robert Gerlach", "Moses Chong"],
+        "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+    },
+    "trans": {
+		" ": "\u3000",
+        "\uf813 squares": [
+            [33, 687],
+            ["\ufffc\u20e3\u00a0"]
+        ]
+    },
+    "trans-include": []
+}
