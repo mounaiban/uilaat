@@ -58,6 +58,40 @@ UILAAT's architecture comprises three main parts:
 
 3. **Text Processors** organise operations that produce output text
 
+Here is an example of the stack used by the Demo Text Processor
+
++---------------------------+
+| **Text Processor**        |
+|                           |
+| ``DemoTP``                |
++---------------------------+
+| **Repository**            |
+|                           |
+| ``JSONRepo``              |
++---------------------------+
+| **Translation Database**  |
+|                           |
+| ``.json`` files           |
++---------------------------+
+
+A potential future stack supporting more DB backends may permit the use
+of another stack like:
+
++---------------------------+
+| **Text Processor**        |
+|                           |
+| ``DemoTP``                |
++---------------------------+
+| **Repository**            |
+|                           |
+| ``SQLRepo``               |
++---------------------------+
+| **Translation Database**  |
+|                           |
+| PostgreSQL Server DB      |
++---------------------------+
+
+
 This design is intended to allow translation databases to be updated
 or created without any changes to the codebase.
 
