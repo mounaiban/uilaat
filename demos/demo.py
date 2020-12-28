@@ -248,15 +248,17 @@ class DemoTP:
         def do_trans(s):
             tmp = s
             for tn in order:
+                trans_dict = self.trans_ops[tn][0]
                 # TODO: pre-process strings with regexes according to
                 # trans spec
-                tmp = tmp.translate(self.trans_ops[tn][0])
                 if self.meta[tn].get('reverse-out', False) is True:
                     # handle reversed output
                     tmp_rev = ''
                     for c in tmp:
-                        tmp_rev = ''.join((c, tmp_rev))
+                        tmp_rev = ''.join((trans_dict.get(ord(c), c), tmp_rev))
                         tmp = tmp_rev
+                else:
+                    tmp = tmp.translate(trans_dict)
             return tmp
 
         if len(order) == 0:
