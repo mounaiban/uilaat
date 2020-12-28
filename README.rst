@@ -24,7 +24,7 @@ Unicode is a registered trademark of Unicode, Inc.
 
 Demo
 ====
-*Also known as: what can we do with this?*
+*Also: 𝔀𝓱𝓪𝓽 𝓬𝓪𝓷 𝔀𝓮 𝓭𝓸 𝔀𝓲𝓽𝓱 𝓽𝓱𝓲𝓼？*
 
 Well, actually not a lot for now...
 
@@ -69,7 +69,7 @@ To list all translations, call:
 
 You should have a list of fully-qualified names of some translations.
 
-Let's Fancy Text 〜⭐ﾌｧﾝｼｰﾃｯｸｽﾄ⭐しまてょっ〜
+Let's Fancy Text 〜⭐ﾌｧﾝｼｰﾃｯｸｽﾄ⭐しましょっ〜
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The demo Text Processor is able to run one or more translations on
 input text. Get started by adding the ``trans:ascii-aesthetic``
@@ -111,11 +111,10 @@ How's that for a start? 🦊
 
 Rationale
 =========
-*Also known as: why create yet another fancy Unicode text library?*
+*Also:* ``w⃞ h⃞ y⃞  ⃞ c⃞ r⃞ e⃞ a⃞ t⃞ e⃞  ⃞ a⃞ n⃞ o⃞ t⃞ h⃞ e⃞ r⃞  ⃞ f⃞ a⃞ n⃞ c⃞ y⃞  ⃞ U⃞ n⃞ i⃞ c⃞ o⃞ d⃞ e⃞  ⃞ t⃞ e⃞ x⃞ t⃞  ⃞ l⃞ i⃞ b⃞ r⃞ a⃞ r⃞ y⃞ ?⃞``
 
-This project was inspired by contemporaries such as Lunicode.js and
-LingoJam, but with a different take on the art and science of text
-mangling:
+This project was inspired by contemporaries such as `Lunicode.js <https://github.com/combatwombat/Lunicode.js>`_
+and `LingoJam <https://lingojam.com>`_, but with a different take on the art and science of text mangling:
 
 1. A stronger emphasis is placed on the linguistic aspect of fancy text:
    this project attempts to curate the relationships between grapheme
@@ -135,7 +134,8 @@ mangling:
 
 TODO
 ====
-We've got big ambitions, but here are the ones that matter most now:
+We've got 🅱🅸🅶 🅰🅼🅱🅸🆃🅸🅾🅽🆂, but here are the ones that matter
+most now:
 
 * **More Preset Translation Databases**: more types of fancy text,
   and possibly cleanup translations to convert fancy text back to
