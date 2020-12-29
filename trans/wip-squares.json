@@ -9,10 +9,11 @@
         "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
     },
     "trans": {
+		" ": "\u3000",
         "\uf813 squares": [
-            [32, 687],
-            ["\ufffc\u20de\u00a0"]
-        ]
+			[[33, 687], ["\ufffc\u20de\u205f\u00a0"]],
+			[[33, 687], ["\ufffc\u20de\u00a0"]]
+		]
     },
     "trans-include": []
 }
