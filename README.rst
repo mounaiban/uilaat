@@ -84,7 +84,7 @@ Verify that you have added the translations by reviewing the applied
 
 ::
 
-    >>> demo.translations
+    >>> demo.trans_ops
     {'trans:ascii-aesthetic': ... }
 
 Note that some translations may contain a large number of *mappings*,
@@ -93,7 +93,7 @@ shows only the names:
 
 ::
 
-    >>> list(demo.translations.keys())
+    >>> list(demo.trans_ops.keys())
     ['trans:ascii-aesthetic', ...]
 
     # quick Python quiz: what data type is demo.translations, and

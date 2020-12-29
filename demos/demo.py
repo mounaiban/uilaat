@@ -165,14 +165,18 @@ class DemoTP:
                     repo.load_db(trans_name)
                         # load_db() raises FileNotFoundError if trans
                         # not found
-                    tname_tmp = ''.join((name, '.', trans_name))
+                    tname_tmp = f"{name}{self.FQ_SEP}{trans_name}"
                     self.trans_ops[tname_tmp] = repo.get_trans(
                         n=n, one_dict=True
                     )
                 except FileNotFoundError:
                     continue
-        self.trans_ops[tname_tmp]=repo.get_trans(n=n,one_dict=True)
-        self.meta[tname_tmp] = repo.get_meta()
+        trans_tmp = repo.get_trans(n=n,one_dict=True)
+        if trans_tmp is not None:
+            self.trans_ops[tname_tmp] = trans_tmp
+            self.meta[tname_tmp] = repo.get_meta()
+        else:
+            raise KeyError(f"translation {trans_name} not found in any repo")
 
     def list_repos(self, incl='valid'):
         """
@@ -220,6 +224,18 @@ class DemoTP:
             for t in trans_names:
                 out.append(f"{r}{self.FQ_SEP}{t}")
         return out
+
+    def pop_trans(self, i):
+        if len(demo.trans_ops) <= 0:
+            raise ValueError("ops dict-list is empty")
+        names = list(self.trans_ops.keys())
+        if isinstance(i, int):
+            if i > len(names):
+                raise ValueError(f"last op has index {len(names)}")
+            tn = names[i]
+            return {tn: self.trans_ops.pop(tn)}
+        elif isinstance(i, str):
+            return self.trans_ops.pop(i)
 
     def sample(self, plane, page, order=[]):
         """
