@@ -10,8 +10,8 @@ Unicode text, artistic communication devices produced by appropriation
 of graphemes between languages and superfluous use of non-word symbols
 and combining characters.
 
-UILAAT is yet another chapter of the history of an Internet tradition
-that resulted from the encounter between an ambitious goal, to
+UILAAT is part of yet another chapter in the history of an Internet
+tradition that resulted from the encounter between an ambitious goal, to
 proliferate telegraphic typography support for every known (and unknown)
 written language system (along with their typographic ornaments), and
 the human fascination with the foreign and exotic.
@@ -20,7 +20,7 @@ the human fascination with the foreign and exotic.
 General Public License, Version 3 or later. Please view the LICENSE file
 for full terms and conditions.*
 
-Unicode is a registered trademark of Unicode, Inc.
+*Unicode is a registered trademark of Unicode, Inc.*
 
 Demo
 ====
@@ -31,19 +31,18 @@ Well, actually not a lot for now...
 A Really Short Intro
 ~~~~~~~~~~~~~~~~~~~~
 There is a demo module ``demos/demo.py`` that is designed for use in
-an interactive shell. You can access it from the repo root (same
-directory as the main module ``uilaat.py``) by running:
+the interactive prompt. To run the demo, run the following command from
+the repo root (same directory as the main module ``uilaat.py``):
 
 ::
 
     python -im demos.demo
 
-If your system is correctly set up, you should be inside the Python
-REPL shell. You will have instant access to a *Text Processor* object
-named ``demo``.
+You should end up in the Python interactive prompt. A ready-to-play
+*Text Processor* object named ``demo`` should be available.
 
-The TP should be linked to two *translation repositories*; these links
-are kept in the ``repos`` dictionary:
+The TP should be linked to two *repositories*; links are kept in the
+``repos`` dictionary:
 
 ::
 
@@ -53,14 +52,14 @@ are kept in the ``repos`` dictionary:
     # system and version-dependent details will not be shown in
     # this example and all subsequent examples...
 
-The built-in translation repository is called ``trans``, while the other,
-``asdf_notfound_404`` is a dummy repo intended to test error handling
-routines.
+Repositories are simply interfaces that enable access to
+*translations* (or details on how to mangle text) that are kept in
+*databases*.
 
-Translation repositories are simply interfaces to databases that contain
-*translations*, or details on how to mangle text.
+The built-in translation repository is called ``trans``, while
+``asdf_notfound_404`` is a dummy repo for testing error handling.
 
-To list all translations, call:
+To list available translations, call:
 
 ::
 
@@ -80,24 +79,12 @@ translation:
     >>> demo.add_trans('trans:ascii-aesthetic')
 
 Verify that you have added the translations by reviewing the applied
-*operations*, by peeking into the ``trans_ops`` attribute:
+*operations*, with ``list_trans_ops()``:
 
 ::
 
-    >>> demo.trans_ops
-    {'trans:ascii-aesthetic': ... }
-
-Note that some translations may contain a large number of *mappings*,
-making them hard to read in the REPL shell. Here's an alternative that
-shows only the names:
-
-::
-
-    >>> list(demo.trans_ops.keys())
-    ['trans:ascii-aesthetic', ...]
-
-    # quick Python quiz: what data type is demo.translations, and
-    # what are you doing with list()?
+    >>> demo.list_trans_ops()
+    ['trans:ascii-aesthetic']
 
 Now that you have added the translations, it's time to make some fancy
 text with the ``translate()`` method:
@@ -109,17 +96,60 @@ text with the ``translate()`` method:
 
 How's that for a start? 🦊
 
+But wait, there's more!
+
+Multi-Translation Operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Translations may sometimes be combined. For example, the Squares 
+translation can be used in conjnction with ``trans:ascii-aesthetic``.
+To add another translation to the operation, use ``add_trans()``:
+
+::
+
+    >>> demo.add_trans("trans:wip-squares", n=2)
+
+    # please note the n=2 argument, this is necessary for the wide
+    # characters output by trans:ascii-aesthetic
+
+Confirm that both translations are in effect:
+
+::
+
+    >>> demo.list_trans_ops()
+    ['trans:ascii-aesthetic', 'trans:wip-squares']
+
+Now, let's try making some more fancy text:
+
+::
+
+    >>> print(demo.translate("KITSUNE EXPRESS"))
+    Ｋ⃞Ｉ⃞Ｔ⃞Ｓ⃞Ｕ⃞Ｎ⃞Ｅ⃞　Ｅ⃞Ｘ⃞Ｐ⃞Ｒ⃞Ｅ⃞Ｓ⃞Ｓ⃞
+
+    # print() formats the string to show the wide spaces as spaces
+
+Now, that's twice the ａｅｓｔｈｅｔｉｃ for the price of one!
+
+To start all over, simply clear the translations from the operation
+with:
+
+::
+
+    >>> demo.trans_ops.clear()
+
+
 Rationale
 =========
-*Also:* ``w⃞ h⃞ y⃞  ⃞ c⃞ r⃞ e⃞ a⃞ t⃞ e⃞  ⃞ a⃞ n⃞ o⃞ t⃞ h⃞ e⃞ r⃞  ⃞ f⃞ a⃞ n⃞ c⃞ y⃞  ⃞ U⃞ n⃞ i⃞ c⃞ o⃞ d⃞ e⃞  ⃞ t⃞ e⃞ x⃞ t⃞  ⃞ l⃞ i⃞ b⃞ r⃞ a⃞ r⃞ y⃞ ?⃞``
+*Also:* w⃞  ʜ⃞  ʏ⃞  　ᴍ⃞  ᴀ⃞  ᴋ⃞  ᴇ⃞  　ᴀ⃞  ɴ⃞  o⃞  ᴛ⃞  ʜ⃞  ᴇ⃞  ʀ⃞  　ꜰ⃞  ᴀ⃞  ɴ⃞  c⃞  ʏ⃞  　ᴛ⃞  ᴇ⃞  x⃞  ᴛ⃞  　ʟ⃞  ɪ⃞  ʙ⃞  ʀ⃞  ᴀ⃞  ʀ⃞  ʏ⃞  ?⃞ 
 
-This project was inspired by contemporaries such as `Lunicode.js <https://github.com/combatwombat/Lunicode.js>`_
-and `LingoJam <https://lingojam.com>`_, but with a different take on the art and science of text mangling:
+This project was inspired by contemporaries such as `Lunicode.js
+<https://github.com/combatwombat/Lunicode.js>`_ and `LingoJam
+<https://lingojam.com>`_, yet attempts a different take on the art
+and science of text mangling:
 
-1. A stronger emphasis is placed on the linguistic aspect of fancy text:
-   this project attempts to curate the relationships between grapheme
-   substitutes, and possibly spark public interest and appreciation of
-   language studies.
+1. A stronger emphasis is placed on the linguistic aspects of fancy
+   text. This project attempts to curate the relationships between
+   grapheme substitutes, and possibly spark public interest and
+   appreciation of language studies.
 
 2. The software in this project is intended to be usable entirely
    offline; this is not a web API or any other kind of RPC software
@@ -132,29 +162,84 @@ and `LingoJam <https://lingojam.com>`_, but with a different take on the art and
 
 3. Amusement value is not the highest priority 😞
 
+Operating System Support
+========================
+Unicode fancy text often borrows graphemes from scripts far beyond the
+most common ones (Arabic, Cyrillic, Devanagari, Greek, Han, Hangeul,
+Kana, Latin) and the other Brahmic scripts. Support for most scripts
+seem to be well-covered on Android, Apple (iOS, macOS, etc...) and
+Microsoft Windows systems.
+
+On GNU/Linux or the libre BSD systems (FreeBSD, OpenBSD, etc...),
+optional font packages may have to be installed to get the fancy
+text to show correctly. The following fonts are recommended for
+excellent coverage and permissive licensing terms:
+
+1. `Noto <https://www.google.com/get/noto/>`_ 🥇
+
+   * Package name prefixes: ``google-noto-*`` (DNF), ``fonts-noto*``
+     (APT), ``noto-fonts`` (Pacman).
+
+   * Unmatched coverage of both majority and minority scripts at
+     time of writing.
+
+   * SIL Open Font License terms and conditions.
+
+2. `DejaVu Sans <https://dejavu-fonts.github.io/>`_ 🥈
+
+   * Preinstalled on most major GNU/Linux systems.
+
+   * Package name prefixes: ``dejavu-*`` (DNF), ``fonts-dejavu*`` (APT),
+     ``ttf-dejavu*`` (Pacman).
+
+   * Comprehensive coverage second only to Noto at time of writing.
+
+   * `Non-standard but permissive <https://dejavu-fonts.github.io/License.html>`_     terms and conditions.
+
+3. `GNU Unifont <https://unifoundry.com/unifont/index.html>`_ 🥉
+
+   * Package names: ``unifont-fonts.noarch`` (DNF), ``unifont`` (APT),
+     ``bdf-unifont`` (Pacman)
+
+   * Preinstalled and used as the console font on most Debian, Ubuntu
+     and derivative systems.
+
+   * Comprehensive coverage for scripts with isolated graphemes that
+     do not typically rely on combining and overlapping.
+
+   * Aesthetics may appeal to pixel art and retrocomputing fans.
+
+   * GNU GPLv2 (with Font Embedding Exception) terms and conditions,
+     available under SIL Open Font License T&Cs for version 13.0.04 up.
+
 TODO
 ====
 We've got 🅱🅸🅶 🅰🅼🅱🅸🆃🅸🅾🅽🆂, but here are the ones that matter
 most now:
 
-* **More Preset Translation Databases**: more types of fancy text,
-  and possibly cleanup translations to convert fancy text back to
-  clear text for screen readers or note takers.
+* **More Preset Databases**: more types of fancy text, and also cleanup
+  translations to convert fancy text back to clear text (really helpful
+  for users of screen readers and text archivists)
 
-* **Translation Database Creation Tools**: creating a translation
-  database is a laborious endeavour but having some helper tools,
-  such as a translation manager or a graph visualiser, can make it
-  easier.
+* **Database Creation Tools**: creating databases is a laborious
+  endeavour but helper tools such as translation managers and
+  visualisers could make things easier.
 
 * **User Apps**: desktop and mobile apps for GTK, maybe Android and
-  iOS, so that users may generate text automatically on-device at the
-  touch of a button. Ideas include:
+  iOS, that generate text automatically on-device at the touch of a
+  button. Ideas include:
 
-  * clipboard monitor that automatically mangles copied text
+  * clipboard monitors that automatically mangles copied text
 
   * input methods to generate fancy text as they are typed
 
-* **Multi-Code Point Targets**: the ability to handle multi-code point
-  targets in translations would be really nice, as these can currently
-  only be done with computationally-expensive regular expressions.
+* **Multi-Code Point Targets**: a low-cost method of supporting
+  multi-code point targets in translations would be really nice,
+  as these are currently only possible with computationally-expensive
+  regular expressions.
+
+Want More?
+==========
+Additional information that don't quite fit here may be found in the
+Wiki or the ``docs`` directory of the source tree.
 

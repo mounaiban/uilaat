@@ -225,6 +225,10 @@ class DemoTP:
                 out.append(f"{r}{self.FQ_SEP}{t}")
         return out
 
+    def list_trans_ops(self):
+        # Return a list of translations in the operation
+        return list(self.trans_ops.keys())
+
     def pop_trans(self, i):
         if len(demo.trans_ops) <= 0:
             raise ValueError("ops dict-list is empty")
