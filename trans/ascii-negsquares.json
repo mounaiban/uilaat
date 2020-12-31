@@ -1,0 +1,15 @@
+{
+    "meta": {
+        "reverse-trans": false,
+        "comments": {
+            "en-AU": "US-ASCII to negative squared letters"
+        },
+        "authors": ["Moses Chong"],
+        "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+    },
+    "trans": {
+        "\uf811 neg_squared_uc": [65, 90, 127279]
+    }
+}
+
