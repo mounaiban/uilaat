@@ -2,17 +2,15 @@
     "meta": {
         "reverse-trans": false,
         "comments": {
-            "en-AU": "US-ASCII letters to mathematical bold script, with double-struck numbers"
+            "en-AU": "US-ASCII letters to mathematical bold letters"
         },
         "authors": ["Moses Chong"],
         "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
         "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
     },
     "trans": {
-        "0": "𝟘",
-        "\uf811 math_bold_script_uc": [65, 90, 119951],
-        "\uf811 math_bold_script_lc": [97, 122, 119945],
-        "\uf811 dbl_struck_digits": [49, 57, 120744]
+        "\uf811 math_bold_uc": [65, 90, 119743],
+        "\uf811 math_bold_lc": [97, 122, 119737]
     }
 }
 

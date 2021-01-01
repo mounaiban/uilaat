@@ -1,7 +1,7 @@
 {
     "meta": {
         "comments": {
-            "en-AU": "US-ASCII Tiny Capitals"
+            "en-AU": "US-ASCII Letters to Tiny Capitals"
         },
         "authors": ["Robert Gerlach", "Moses Chong"],
         "copyright": "UILAAT version ©2020 Moses Chong. Based on Lunicode.js ©2012 Robert Gerlach",
