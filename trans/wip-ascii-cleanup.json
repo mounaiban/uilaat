@@ -1,0 +1,38 @@
+{
+	"meta": {
+		"reverse-trans": true,
+		"comments": {
+			"en-AU": "US-ASCII cleanup translation. Converts look-alike characters back to Latin letters A-Z, stripping diacritics except the i tittle."
+		},
+		"authors": ["Moses Chong"],
+		"copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+		"license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode",
+		"version-format": "0.5"
+	},
+	"trans": {
+		"A": ["À", "Á", "Â", "Ã", "Ä", "Å"],
+		"AE": "Æ",
+		"B": "ß",
+		"C": ["©", "Ç"],
+		"D": "Ð",
+		"E": ["£", "È", "É", "Ê", "Ë"],
+		"I": ["Ì", "Í", "Î", "Ï"],
+		"N": "Ñ",
+		"O": ["Ò", "Ó", "Ô", "Õ", "Ö", "Ø"],
+		"P": "Þ",
+		"U": ["Ù", "Ú", "Û", "Ü"],
+		"Y": ["¥", "Ý"],
+		"a": ["à", "á", "â", "ã", "ä", "å"],
+		"ae": "æ",
+		"b": "þ",
+		"c": ["¢", "ç"],
+		"d": "ð",
+		"e": ["è", "é", "ê", "ë"],
+		"i": ["¡", "ì", "í", "î", "ï"],
+		"n": "ñ",
+		"o": ["ò", "ó", "ô", "õ", "ö", "ø"],
+		"u": ["ù", "ú", "û", "ü"],
+		"x": "×",
+		"y": "ý"
+	}
+}
