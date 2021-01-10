@@ -144,8 +144,8 @@ class CodePointOffsetLookup:
 
 class RangeIndexedList:
     """
-    A list which returns items according to the range which the key
-    falls into.
+    A list which returns items according to the range which the
+    search key falls into.
 
     This class, when used with int keys, is intended for use with
     str.translate().
@@ -183,6 +183,10 @@ class RangeIndexedList:
            If int keys are used, the ord() of the key is used as the
            replacement instead.
 
+        * validate - (bool) if set to True, bounds and values will be
+          checked for correctness when the RIL is created, see validate()
+          for details.
+
         """
         self._copy_key = kwargs.get('copy_key', False)
         self._default = kwargs.get('default', self.DEFAULT_VALUE)
@@ -217,7 +221,7 @@ class RangeIndexedList:
         Where:
         vs = ('\u2615', '\U0001f35c', '\U0001f356') # three items
         keys = (7,9,12,14,17,21) # three ranges
-        L = (vs, keys)
+        L = RangeIndexedList(vs, keys)
 
         7 <= x <= 9; L[x] == '\u2615'
         12 <= x <= 14; L[x] == '\U0001f35c'
@@ -373,7 +377,20 @@ class RangeIndexedList:
         Check if bound and key lists are well-formed. Returns None
         if all checks pass.
 
-        Raises ValueErrors if checks fail
+        A RangeIndexedList is well-formed when:
+
+        1. Every bound has a start and an end; this is determined by
+           bounds having an even number of values.
+
+        2. The bounds are sorted and non-overlapping; this is determined
+           by ensuring all bounds in ``bounds`` are sorted smallest first,
+           and that there is gap of at least 1 between bounds.
+
+        3. There is a value for every bound; this is determined by making
+           sure ``values`` has either one, or half of the number of values
+           in ``bounds``.
+
+        Raises ValueErrors if any check fails.
 
         """
         # TODO: Tests for validate()
