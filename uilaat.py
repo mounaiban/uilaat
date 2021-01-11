@@ -711,6 +711,9 @@ class JSONRepo:
             if reverse_trans:
                 if k == '':
                     return
+                elif isinstance(v, (list, tuple)):
+                    for item in v:
+                        trans_dicts[0][item] = k
                 else:
                     trans_dicts[0][v_out] = k
             else:
