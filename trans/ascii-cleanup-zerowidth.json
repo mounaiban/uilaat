@@ -2,16 +2,14 @@
     "meta": {
         "reverse-trans": false,
         "comments": {
-            "en-AU": "Remove overlapping or combining characters from US-ASCII text. Not to be applied on scripts that rely on combining characters."
+            "en-AU": "Remove zero-width spaces from US-ASCII text. Not to be applied on Arabic text or text of any script that relies on zero-width spaces."
         },
         "authors": ["Moses Chong"],
         "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
         "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
     },
     "trans": {
-        "\uf813 remove_composing" : [
-            [768, 879, 6832, 6912, 6916, 6964, 6980, 7019, 7027],
-            [null]
-        ]
+        "\uf813 remove_zws" : [[8203, 8205],[null]]
     }
 }
+
