@@ -195,7 +195,7 @@ class RangeIndexedList:
         self._validate = kwargs.get('validate', True)
 
         if values is None:
-            self._values = [self._default,] * (len(bounds)//2)
+            self._values = [self._default,]
         else:
             self._values = list(values)
 
