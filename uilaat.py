@@ -540,22 +540,22 @@ class TranslationDict(dict):
     _super = None
 
     def __init__(self, *args, **kwargs):
-        self._out_default = SUBPOINT
+        self.out_default = SUBPOINT
         self._super = super()
         self._super.__init__()
         if len(args) > 0:
             init_dict = args[0]
             if isinstance(init_dict, dict):
-                self._out_default = init_dict.get('', SUBPOINT)
                 for k in init_dict.keys():
                     self.__setitem__(k, init_dict[k])
+                self.out_default = init_dict.get('', SUBPOINT)
             else:
                 raise TypeError('only dicts are supported as initialisers')
 
     def __setitem__(self, key, value):
         if isinstance(key, str):
             if key == '':
-                self._out_default = value
+                self.out_default = value
                 self._super.__setitem__('', value)
             elif len(key) == 1:
                 self._super.__setitem__(ord(key), value)
@@ -565,7 +565,7 @@ class TranslationDict(dict):
             self._super.__setitem__(key, value)
 
     def __getitem__(self, key):
-        out = self._super.get(key, self._out_default)
+        out = self._super.get(key, self.out_default)
         if out is None:
             return None
         if SUBPOINT in out:
@@ -578,23 +578,16 @@ class TranslationDict(dict):
 
     def get_dict(self):
         """
-        Return a Python dict equivalent to the TranslationDict if one
-        can be created. This is possible only when a default translation
-        (referenced by the empty string key '') has not been set.
-
-        None will be returned instead if the conversion is not possible.
+        Return a plain dict equivalent to the TranslationDict.
 
         """
-        if '' in self:
-            return None
-        else:
-            temp = {}
-            for k in self.keys():
-                temp[k] = self.__getitem__(k)
-            return temp
+        temp = {}
+        for k in self.keys():
+            temp[k] = self.__getitem__(k)
+        return temp
 
     def reset_default(self):
-        self._out_default = self.get('', SUBPOINT)
+        self.out_default = self.get('', SUBPOINT)
 
     @classmethod
     def from_dict(self, d):
@@ -720,25 +713,32 @@ class JSONRepo:
         #  code begins after the last handler function below.
         #
         def _prep_one_dict(trans_list):
-            # Convert the list of translation lookup objects into a list
-            # with one dict at index zero and optional accompanying regex
-            # translations appearing later.
+            # Condense a list of translation lookup objects so that all
+            # non-regex lookups are combined into a single lookup at index
+            # 0 of the list.
+
             if not isinstance(trans_list[0], dict):
                 raise ValueError("debug: dictionary not on top of trans list")
             out = [{},]
             for t in trans_list:
                 if hasattr(t, 'dict'):
+                    # handle types with dict() e.g. CodePointOffsetLookup
                     tmp = t.dict()
                     ktmp = tmp.keys()
                     for k in ktmp:
                         out[0][k] = tmp[k]
                 elif hasattr(t, 'get_dict'):
+                    # Handle types with get_dict() e.g. TranslationDict
                     tmp = t.get_dict()
                     ktmp = tmp.keys()
                     for k in ktmp:
                         out[0][k] = tmp[k]
                 else:
                     out.append(t)
+            if '' in out[0]:
+                # TODO: Find a faster way to do this
+                out[0] = TranslationDict.from_dict(out[0])
+                out[0][''] = trans_list[0].out_default
             return out
 
         def _prep_trans(k, v):
