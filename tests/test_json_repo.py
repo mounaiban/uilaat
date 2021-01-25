@@ -597,10 +597,10 @@ class GetTransTests(TestCase):
         Alternative translations in standalone databases
 
         """
-        name = 'test_get_trans_alts_reverse'
+        name = 'test_get_trans_alts'
         db = {
             'meta': {
-                'reverse-trans': True,
+                'reverse-trans': False,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Standalone reversed translation with alts.',
@@ -613,10 +613,10 @@ class GetTransTests(TestCase):
         jr = JSONRepo(REPO_DIR)
         jr.load_db(name)
 
-        self.assertIn(TranslationDict({FANCY_ONE_a: '1'}), jr.get_trans())
-        self.assertIn(TranslationDict({FANCY_ONE_a: '1'}), jr.get_trans(n=0))
-        self.assertIn(TranslationDict({FANCY_ONE_b: '1'}), jr.get_trans(n=1))
-        self.assertIn(TranslationDict({FANCY_ONE_c: '1'}), jr.get_trans(n=2))
+        self.assertIn(TranslationDict({'1': FANCY_ONE_a}), jr.get_trans())
+        self.assertIn(TranslationDict({'1': FANCY_ONE_a}), jr.get_trans(n=0))
+        self.assertIn(TranslationDict({'1': FANCY_ONE_b}), jr.get_trans(n=1))
+        self.assertIn(TranslationDict({'1': FANCY_ONE_c}), jr.get_trans(n=2))
 
     def test_get_trans_alts_oor(self):
         """
@@ -655,10 +655,10 @@ class GetTransTests(TestCase):
         Reversal of alternate translations, with standalone database
 
         """
-        name = 'test_get_trans_alts'
+        name = 'test_get_trans_alts_reverse'
         db = {
             'meta': {
-                'reverse-trans': False,
+                'reverse-trans': True,
                 'version': VERSION,
                 'desc': {
                     'en-au': 'Standalone translation with alternatives',
@@ -671,10 +671,17 @@ class GetTransTests(TestCase):
         jr = JSONRepo(REPO_DIR)
         jr.load_db(name)
 
-        self.assertIn(TranslationDict({'1': FANCY_ONE_a}), jr.get_trans())
-        self.assertIn(TranslationDict({'1': FANCY_ONE_a}), jr.get_trans(n=0))
-        self.assertIn(TranslationDict({'1': FANCY_ONE_b}), jr.get_trans(n=1))
-        self.assertIn(TranslationDict({'1': FANCY_ONE_c}), jr.get_trans(n=2))
+        # n should have no effect when reversing a translation with multiple
+        # mappings
+        dict_expt = {
+            ord(FANCY_ONE_a): '1',
+            ord(FANCY_ONE_b): '1',
+            ord(FANCY_ONE_c): '1'
+        }
+        self.assertIn(dict_expt, jr.get_trans())
+        self.assertIn(dict_expt, jr.get_trans(n=0))
+        self.assertIn(dict_expt, jr.get_trans(n=1))
+        self.assertIn(dict_expt, jr.get_trans(n=2))
 
     def test_get_trans_cpoff(self):
         """

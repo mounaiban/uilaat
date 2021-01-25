@@ -100,7 +100,7 @@ class GetitemTests(TestCase):
         tdict_d[''] = test_newdef
         out_nf = tdict_d[ord(test_lookup)]
 
-        self.assertEqual(tdict_d._out_default, out_nf)
+        self.assertEqual(tdict_d.out_default, out_nf)
         self.assertEqual(out_nf, test_newdef)
 
     def test_setitem_multi_codepoint(self):
@@ -130,6 +130,7 @@ class GetitemTests(TestCase):
         Handle conversion to plain dict when default output set
         """
         tdict_d = self.clsc.from_dict(dict_with_default)
+        out_expected = {ord('a'): FANCY_A, ord('b'): FANCY_Bm, '': DEFAULT_OUT}
 
-        self.assertIsNone(tdict_d.get_dict())
+        self.assertEquals(tdict_d, out_expected)
 

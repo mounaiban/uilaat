@@ -43,7 +43,7 @@ is_odd = lambda x : x%2 != 0
 # There are notes in the comments at the end of this module.
 #
 
-# Surrogate helper functions
+# Helper functions
 #
 utf16_hs = lambda v:((((v & 0x1F0000)>>16)-1)<<6) | ((v & 0xFC00)>>10) | 0xD800
     # get UTF-16 high surrogate ordinal from code point ordinal
@@ -66,6 +66,58 @@ def surr(c):
     else:
         raise ValueError('surrogates are for code points 0x10000 to 0x10FFFF')
 
+def dump_code_page(plane, page):
+    """
+    Naively dumps a code page of Unicode code points as a string, without
+    regard for a code point's properties.
+
+    A code page is defined as a series of 256 code points starting from
+    U+0000, or any code point value that is a multiple of 256.
+
+    Use this function for testing translation operations.
+
+    To avoid malfunctions in terminals, especially when print() is used
+    with dumps, code points U+0000 to U+00FF inclusive will not be returned.
+
+    Arguments
+    ---------
+    PROTIP: decimal values are accepted for (int) arguments too
+
+    * plane - (int) index of the 65536-code point block, corresponding
+        to the highest four bits of the 21-bit code point value.
+        See Section 2.8 of the Unicode Standard Core Specification.
+        Range allowed: 0x0 <= plane <= 0x10
+
+    * page - (int) the value of the code page, corresponding to bits
+      8/9 to 15/16 of the code point value.
+
+    Example: to dump U+3000 to U+30FF: plane=0x0, page=0x30; to dump
+    U+21000 to U+210FF: plane=0x2, page=0x10
+
+    """
+    if plane < 0 or page < 0:
+        return None
+    if plane > 10 or page > 0xFF:
+        return None
+    out = ''
+    if plane == 0 and page == 0:
+        # Avoid dumping code points identical to ASCII control codes
+        # to avoid messing up terminal emulators
+        for i in range(32, 127):
+            out = ''.join((out, chr(i),))
+        for i in range(174, 256):
+            out = ''.join((out, chr(i),))
+    else:
+        start = (plane << 16) +  (page << 8)
+        end = start | 0xFF
+        for i in range(start, end+1):
+            out = ''.join((out, chr(i),))
+    return out
+
+def dump_page(plane, page):
+    # support use of deprecated function
+    warn('dump_page() will be renamed to dump_code_page()', DeprecationWarning)
+    return dump_code_page(plane, page)
 
 # Supplementary Mapping Classes
 #
@@ -144,8 +196,8 @@ class CodePointOffsetLookup:
 
 class RangeIndexedList:
     """
-    A list which returns items according to the range which the key
-    falls into.
+    A list which returns items according to the range which the
+    search key falls into.
 
     This class, when used with int keys, is intended for use with
     str.translate().
@@ -183,6 +235,10 @@ class RangeIndexedList:
            If int keys are used, the ord() of the key is used as the
            replacement instead.
 
+        * validate - (bool) if set to True, bounds and values will be
+          checked for correctness when the RIL is created, see validate()
+          for details.
+
         """
         self._copy_key = kwargs.get('copy_key', False)
         self._default = kwargs.get('default', self.DEFAULT_VALUE)
@@ -191,7 +247,7 @@ class RangeIndexedList:
         self._validate = kwargs.get('validate', True)
 
         if values is None:
-            self._values = [self._default,] * (len(bounds)//2)
+            self._values = [self._default,]
         else:
             self._values = list(values)
 
@@ -217,7 +273,7 @@ class RangeIndexedList:
         Where:
         vs = ('\u2615', '\U0001f35c', '\U0001f356') # three items
         keys = (7,9,12,14,17,21) # three ranges
-        L = (vs, keys)
+        L = RangeIndexedList(vs, keys)
 
         7 <= x <= 9; L[x] == '\u2615'
         12 <= x <= 14; L[x] == '\U0001f35c'
@@ -373,7 +429,20 @@ class RangeIndexedList:
         Check if bound and key lists are well-formed. Returns None
         if all checks pass.
 
-        Raises ValueErrors if checks fail
+        A RangeIndexedList is well-formed when:
+
+        1. Every bound has a start and an end; this is determined by
+           bounds having an even number of values.
+
+        2. The bounds are sorted and non-overlapping; this is determined
+           by ensuring all bounds in ``bounds`` are sorted smallest first,
+           and that there is gap of at least 1 between bounds.
+
+        3. There is a value for every bound; this is determined by making
+           sure ``values`` has either one, or half of the number of values
+           in ``bounds``.
+
+        Raises ValueErrors if any check fails.
 
         """
         # TODO: Tests for validate()
@@ -471,22 +540,22 @@ class TranslationDict(dict):
     _super = None
 
     def __init__(self, *args, **kwargs):
-        self._out_default = SUBPOINT
+        self.out_default = SUBPOINT
         self._super = super()
         self._super.__init__()
         if len(args) > 0:
             init_dict = args[0]
             if isinstance(init_dict, dict):
-                self._out_default = init_dict.get('', SUBPOINT)
                 for k in init_dict.keys():
                     self.__setitem__(k, init_dict[k])
+                self.out_default = init_dict.get('', SUBPOINT)
             else:
                 raise TypeError('only dicts are supported as initialisers')
 
     def __setitem__(self, key, value):
         if isinstance(key, str):
             if key == '':
-                self._out_default = value
+                self.out_default = value
                 self._super.__setitem__('', value)
             elif len(key) == 1:
                 self._super.__setitem__(ord(key), value)
@@ -496,7 +565,7 @@ class TranslationDict(dict):
             self._super.__setitem__(key, value)
 
     def __getitem__(self, key):
-        out = self._super.get(key, self._out_default)
+        out = self._super.get(key, self.out_default)
         if out is None:
             return None
         if SUBPOINT in out:
@@ -509,23 +578,16 @@ class TranslationDict(dict):
 
     def get_dict(self):
         """
-        Return a Python dict equivalent to the TranslationDict if one
-        can be created. This is possible only when a default translation
-        (referenced by the empty string key '') has not been set.
-
-        None will be returned instead if the conversion is not possible.
+        Return a plain dict equivalent to the TranslationDict.
 
         """
-        if '' in self:
-            return None
-        else:
-            temp = {}
-            for k in self.keys():
-                temp[k] = self.__getitem__(k)
-            return temp
+        temp = {}
+        for k in self.keys():
+            temp[k] = self.__getitem__(k)
+        return temp
 
     def reset_default(self):
-        self._out_default = self.get('', SUBPOINT)
+        self.out_default = self.get('', SUBPOINT)
 
     @classmethod
     def from_dict(self, d):
@@ -651,25 +713,32 @@ class JSONRepo:
         #  code begins after the last handler function below.
         #
         def _prep_one_dict(trans_list):
-            # Convert the list of translation lookup objects into a list
-            # with one dict at index zero and optional accompanying regex
-            # translations appearing later.
+            # Condense a list of translation lookup objects so that all
+            # non-regex lookups are combined into a single lookup at index
+            # 0 of the list.
+
             if not isinstance(trans_list[0], dict):
                 raise ValueError("debug: dictionary not on top of trans list")
             out = [{},]
             for t in trans_list:
                 if hasattr(t, 'dict'):
+                    # handle types with dict() e.g. CodePointOffsetLookup
                     tmp = t.dict()
                     ktmp = tmp.keys()
                     for k in ktmp:
                         out[0][k] = tmp[k]
                 elif hasattr(t, 'get_dict'):
+                    # Handle types with get_dict() e.g. TranslationDict
                     tmp = t.get_dict()
                     ktmp = tmp.keys()
                     for k in ktmp:
                         out[0][k] = tmp[k]
                 else:
                     out.append(t)
+            if '' in out[0]:
+                # TODO: Find a faster way to do this
+                out[0] = TranslationDict.from_dict(out[0])
+                out[0][''] = trans_list[0].out_default
             return out
 
         def _prep_trans(k, v):
@@ -694,6 +763,9 @@ class JSONRepo:
             if reverse_trans:
                 if k == '':
                     return
+                elif isinstance(v, (list, tuple)):
+                    for item in v:
+                        trans_dicts[0][item] = k
                 else:
                     trans_dicts[0][v_out] = k
             else:
@@ -936,6 +1008,273 @@ class JSONRepo:
         if isinstance(s, str):
             if ord(s[0]) & 0xF800 == 0xF800:
                 return s.split(' ')[1:]
+
+
+# TextProcessor Class
+#
+
+class TextProcessor:
+    """
+    Unifies repositories and string translation objects, allowing
+    translations to be loaded and applied in one place.
+
+    This class is intended to be a building block for interactive
+    applications or command line tools.
+
+    """
+    FQ_SEP = ':'
+    def __init__(self, repo_dict={}):
+        """
+        To create a TextProcessor:
+        TextProcessor() => empty TextProcessor
+        TextProcessor(dict) => TP with preloaded repositories
+
+        Format for dict: {REPO_NAME: REPO_OBJECT, ...}
+        Only JSONRepo's are supported as repo objects at the moment.
+
+        Repositories must be added before translations can be loaded
+        and applied, please see add_repo().
+
+        """
+        self.repos = repo_dict
+        self.trans_dicts = {}
+        self.trans_ops_list = []
+        self.meta = {}
+
+    def add_repo(self, repo):
+        """
+        Add a single repository. Only JSONRepo's are supported at
+        this time.
+
+        """
+        if not isinstance(repo, JSONRepo):
+            err = {
+                'msg': 'only JSONRepo\'s are currently supported',
+                'repo-type': type(repo)
+            }
+            raise TypeError(err)
+        self.repos[repo._repo_dir] = repo
+            # TODO: implement non-private alternative to repo._repo_dir
+
+    def add_trans_dict(self, trans_name, n=0):
+        """
+        Add a translation dictionary to the TP in order to use it
+        with translate(). Dictionaries can be loaded just once, but
+        may be used multiple times in an operation.
+
+        If multiple repositories have been added, to access a dictionary
+        that shares a name with another in a different repository,
+        use a fully qualified name like: 'REPO:TRANS', where REPO is
+        the name of the repository, and TRANS is the name of the
+        translation.
+
+        Please avoid using the colon ':' in translation or database names.
+
+        The n value selects alternate translations where available.
+
+        """
+        tname = trans_name
+        repo = None
+        repo_name = None
+        if self.FQ_SEP in tname:
+            # handle fully-qualified translation names
+            alrepo = tname.split(self.FQ_SEP)[0]
+            tname = tname[tname.index(self.FQ_SEP)+1:] # extract db name
+            repo_names = tuple(self.repos.keys())
+            if alrepo in repo_names:
+                repo_name = alrepo
+                repo = self.repos[repo_name]
+                repo.load_db(tname)
+        else:
+            # if a non-FQ translation name is used, look through all
+            # added repos and get the first translation found
+            for name in self.list_repos(incl='valid'):
+                try:
+                    repo = self.repos[name]
+                    repo.load_db(trans_name)
+                        # load_db() raises FileNotFoundError if trans
+                        # not found
+                    repo_name = name
+                except FileNotFoundError:
+                    continue
+        if repo_name is None:
+            raise KeyError(f"translation {trans_name} not found in any repo")
+        else:
+            k = f"{repo_name}{self.FQ_SEP}{tname}.{n}"
+            self.trans_dicts[k] = repo.get_trans(n=n, one_dict=True)
+            self.meta[k] = repo.get_meta()
+
+    def add_trans_ops(self, k, p=None):
+        """
+        Add a translation stage, k, to the operation list,
+        self.trans_ops_list. The argument k may be a name of a translation
+        dictionary in self.trans_dicts, or an integer index representing
+        the k-th dictionary added to the TP.
+
+        Optionally, the position p of the new translation may be specified.
+        The translation will be added before position p. If p is not specified,
+        the translation will be added at the end of the list.
+
+        The same translation can occur more than once on the list.
+
+        This list contains the names of translation dictionaries added to
+        the TP with add_trans_dict(). Translations named self.trans_ops_list
+        will be applied with translate() as ordered in the list, unless
+        overridden.
+
+        """
+        dict_names = list(self.trans_dicts.keys())
+        if p is None:
+            p = len(self.trans_ops_list)
+        if isinstance(k, int):
+            dname = dict_names[k]
+            self.trans_ops_list.insert(p, dname)
+        elif isinstance(k, str):
+            if k in dict_names:
+                self.trans_ops_list.insert(p, k)
+
+    def clear_trans(self):
+        self.trans_dicts.clear()
+        self.trans_ops_list.clear()
+
+    def list_repos(self, incl='valid'):
+        """
+        Gets a list of names of repositories. Valid options for incl are:
+
+        * 'valid': list names of valid repositories.
+
+        * 'all': list names of all loaded repositories, valid repositories
+          first, followed by invalid repositories in a nested list.
+          A repository is invalid when it is non-existent or inaccessible.
+
+        """
+        if not isinstance(self.repos, dict):
+            err = {
+                'msg': 'repo dictionary is not of type dict',
+                'repo-type': type(self.repos)
+            }
+            raise TypeError(err)
+        out = []
+        out_invalid = []
+        keys = self.repos.keys()
+        for k in keys:
+            try:
+                if self.repos[k].list_trans(incl='count') >= 0:
+                    out.append(k)
+            except NotADirectoryError:
+                # invalid repository encountered
+                out_invalid.append(k)
+        if len(out_invalid) > 0 and incl == 'all':
+            out.append(out_invalid)
+        return out
+
+    def list_trans(self):
+        """
+        Return a list of names of available translations from all valid
+        repositories added to the text processor.
+
+        """
+        repo_names= self.list_repos(incl='valid')
+        out = []
+        for r in repo_names:
+            repo = self.repos[r]
+            trans_names = repo.list_trans(incl='names')
+            for t in trans_names:
+                out.append(f"{r}{self.FQ_SEP}{t}")
+        return out
+
+    def list_trans_ops(self):
+        """
+        Return a list of translations that will be applied when
+        translate() is used.
+
+        """
+        return self.trans_ops_list
+
+    def pop_trans_ops(self, i):
+        """
+        Remove a translation i from the translation operations list,
+        self.trans_ops_list and return its name.
+
+        i is an int index, or the full name as it appears in the list.
+
+        """
+        if len(self.trans_ops_list) <= 0:
+            raise ValueError("ops dict-list is empty")
+        elif isinstance(i, str):
+            i = self.trans_ops_list.index(i)
+        elif isinstance(i, int):
+            if i >= len(self.trans_ops_list):
+                raise ValueError(f"last op has index {len(names)}")
+        else:
+            raise ValueError("please specify translation name or int index")
+        return self.trans_ops_list.pop(i)
+
+    def sample(self, plane, page, order=[]):
+        """
+        Returns a string of consecutive code points for previewing the
+        final effects of the translation operations selected using
+        add_trans_ops(). See translate() for details on using the order
+        argument.
+
+        The definition of plane is specified in the Unicode Standard
+        Core Specification (e.g. plane 0x0 is U+0000 to U+FFFF inclusive,
+        plane 0x1 is U+10000 to U+1FFFF, and so on...)
+
+        A page (short for code page) is a series of 256 code points
+        starting at U+0000 or any other value that is a multiple of 256.
+
+        """
+        dump = dump_code_page(plane, page)
+        return self.translate(dump, order)
+
+    def translate(self, s, order=[]):
+        """
+        Make some fancy text!
+
+        Returns a string made by applying translations listed in the
+        translation operation list self.trans_ops_list on s.
+
+        Add translations to the operation list using add_trans_ops(),
+        remove it using pop_trans_ops(). Translations will be performed
+        as they appear in self.trans_ops_list.
+
+        Use the order argument to override self.trans_ops_list.
+
+        Format for order: a list of one or more dictionary names or integer
+        indices. Dictionary names must be taken from the keys of
+        self.trans_dicts, while indices refer to the n-th dictionary added.
+
+        """
+        def do_lup(i):
+            # Return a name in self.trans_dicts from a numerical index;
+            # do_lup(0) returns the name of the first dict in trans_dicts.
+            dict_names = list(self.trans_dicts.keys())
+            if isinstance(i, int):
+                return dict_names[i]
+            else:
+                return x
+
+        if len(order) == 0:
+            olist = self.trans_ops_list
+        else:
+            m = map(do_lup, order)
+            olist = [s for s in m]
+
+        out = s
+        for tn in olist:
+            tdict = self.trans_dicts[tn][0]
+            # TODO: regex preprocessing translations are still not applied,
+            # need to implement them
+            if self.meta[tn].get('reverse-out', False):
+                # handle reversed output
+                tmp_rev = ''
+                for c in out:
+                    tmp_rev = ''.join((tdict.get(ord(c), c), tmp_rev))
+                    out = tmp_rev
+            else:
+                out = out.translate(tdict)
+        return out
 
 # Important Information
 # ---------------------

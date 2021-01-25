@@ -10,7 +10,7 @@ Unicode text, artistic communication devices produced by appropriation
 of graphemes between languages and superfluous use of non-word symbols
 and combining characters.
 
-UILAAT is part of yet another chapter in the history of an Internet
+UILAAT is a part of yet another chapter in the history of an Internet
 tradition that resulted from the encounter between an ambitious goal, to
 proliferate telegraphic typography support for every known (and unknown)
 written language system (along with their typographic ornaments), and
@@ -22,119 +22,184 @@ for full terms and conditions.*
 
 *Unicode is a registered trademark of Unicode, Inc.*
 
-Demo
-====
+Usage
+=====
 *Also: 𝔀𝓱𝓪𝓽 𝓬𝓪𝓷 𝔀𝓮 𝓭𝓸 𝔀𝓲𝓽𝓱 𝓽𝓱𝓲𝓼？*
 
-Well, actually not a lot for now...
+The software can be broken down into three main parts, and its usage into
+five main steps.
 
-A Really Short Intro
-~~~~~~~~~~~~~~~~~~~~
-There is a demo module ``demos/demo.py`` that is designed for use in
-the interactive prompt. To run the demo, run the following command from
-the repo root (same directory as the main module ``uilaat.py``):
+Parts
+
+* Databases (DBs)
+
+* Repositories
+
+* Text Processors (TPs)
+
+Steps
+
+1. Prepare the Repositories
+
+2. Prepare the Text Processors, and attach the Repositories to the TPs
+
+3. Load the translations from the DBs in to the TPs
+
+4. Prepare operations in the TPs
+
+5. Apply the operations to input strings to make fancy text!
+
+Demo
+~~~~
+There is a demo module ``demos/demo.py`` which contains a ready-to-play
+Text Processor. To run the demo, run the following command from the repo
+root (same directory as the main module ``uilaat.py``):
 
 ::
 
     python -im demos.demo
 
-You should end up in the Python interactive prompt. A ready-to-play
-*Text Processor* object named ``demo`` should be available.
+You should end up in the Python interactive prompt. There should be a
+TP called ``demo``.
 
-The TP should be linked to two *repositories*; links are kept in the
-``repos`` dictionary:
-
-::
-
-    >>> demo.repos
-    {'trans': ..., 'asdf_notfound_404': ...}
-
-    # system and version-dependent details will not be shown in
-    # this example and all subsequent examples...
-
-Repositories are simply interfaces that enable access to
-*translations* (or details on how to mangle text) that are kept in
-*databases*.
-
-The built-in translation repository is called ``trans``, while
-``asdf_notfound_404`` is a dummy repo for testing error handling.
-
-To list available translations, call:
+Preparing Repositories and TPs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Please ensure that the necessary components have been imported:
 
 ::
 
-    >>> demo.list_trans()
-    [...]
+    from uilaat import JSONRepo, TextProcessor
 
-You should have a list of fully-qualified names of some translations.
-
-Let's Fancy Text 〜⭐ﾌｧﾝｼｰﾃｯｸｽﾄ⭐しましょっ〜
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The demo Text Processor is able to run one or more translations on
-input text. Get started by adding the ``trans:ascii-aesthetic``
-translation:
+Create a Repository like this:
 
 ::
 
-    >>> demo.add_trans('trans:ascii-aesthetic')
+    trepo = JSONRepo("trans")
 
-Verify that you have added the translations by reviewing the applied
-*operations*, with ``list_trans_ops()``:
+JSON Repositories are the only supported repositories at time of writing,
+``trans`` is a JSON repository containing built-in translations.
 
-::
-
-    >>> demo.list_trans_ops()
-    ['trans:ascii-aesthetic']
-
-Now that you have added the translations, it's time to make some fancy
-text with the ``translate()`` method:
+With the JSONRepo now ready, create a TP and attach the repository:
 
 ::
 
-    >>> demo.translate("quick brown fox '92-'98")
-    'ｑｕｉｃｋ ｂｒｏｗｎ ｆｏｘ ＇９２－＇９８'
+    tp = TextProcessor()
+    tp.add_repo(trepo)
+
+Verify that the repository has been attached:
+
+::
+
+    >>> tp.repos
+    {'trans': JSONRepo('trans')}
+    # the name 'trans' was automatically detected by the TextProcessor
+
+Alternatively, repositories may be added more explicitly when creating
+the TP:
+
+::
+
+    tp2 = TextProcessor({'repo2': JSONRepo('trans')})
+    # attaching repos this way allows overriding of the repo names,
+    # the JSONRepo will be added as 'repo2', instead of 'trans'
+
+Loading Translations and Defining Operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Bring up a list of available translations with the list_trans() method:
+
+::
+
+    tp.list_trans()
+
+The list will contain *fully-qualified* names which include the name of the
+database of the translation.
+
+Add translations to the TP's dictionary to enable their use, like this:
+
+::
+
+    tp.add_trans_dict('trans:wip-squares', n=0)
+    tp.add_trans_dict('trans:wip-squares', n=2) # alternate translation
+    tp.add_trans_dict('trans:ascii-aesthetic')
+    tp.add_trans_dict('ascii-tiny-capitals')    # non-FQ name
+
+
+Non-fully qualified names may be safely used if there are no databases
+across multiple repositories sharing the same name. The ``n`` argument
+selects alternate mappings where available.
+
+ *PROTIP:* translations that lack alternate mappings will produce the same
+ output regardless of ``n`` index.
+
+Confirm that the translations have been added:
+
+::
+
+    >>> tp.trans_dicts.keys()
+    dict_keys(['trans:wip-squares.0', 'trans:wip-squares.2', 'trans:ascii-aesthetic.0', 'trans:ascii-tiny-capitals.0'])
+
+Note that translation names in ``trans_dicts`` have a dot-and-number suffix.
+This corresponds to the alternate translation index specified by the ``n``
+argument when the translation was added to the TP.
+
+Define the default translation operation by adding one or more dictionaries
+like this:
+
+::
+
+    tp.add_trans_ops('trans:wip-squares.0')
+    tp.add_trans_ops(3)
+
+Translation names must match those returned by ``tp.trans_dicts.keys()``.
+Numerical indices are also accepted. The ``3`` is a reference to
+``trans:ascii-tiny-capitals.0``.
+
+Verify the operation by checking the contents of ``trans_ops_list``:
+
+::
+
+    >>> tp.trans_ops_list
+    ['trans:ascii-tiny-capitals.0, 'trans:wip-squares.0']
+
+Finally, use ``translate()`` to generate some text:
+
+::
+
+    >>> print(tp.translate("kitsune express"))
+    ᴋ⃞  ɪ⃞  ᴛ⃞  s⃞  u⃞  ɴ⃞  ᴇ⃞  　ᴇ⃞  x⃞  ᴘ⃞  ʀ⃞  ᴇ⃞  s⃞  s⃞  
+    # print() formats the string to show wide spaces and squares
 
 How's that for a start? 🦊
 
 But wait, there's more!
 
-Multi-Translation Operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Translations may sometimes be combined. For example, the Squares 
-translation can be used in conjnction with ``trans:ascii-aesthetic``.
-To add another translation to the operation, use ``add_trans()``:
+Remove a translation from the default operation with ``pop_trans_ops()``:
 
 ::
 
-    >>> demo.add_trans("trans:wip-squares", n=2)
+    >>> tp.pop_trans_ops('trans:wip-squares.0')
+    'trans:wip-squares.0'
+    >>> tp.translate("kitsune express")
+    'ᴋɪᴛsuɴᴇ ᴇxᴘʀᴇss'
 
-    # please note the n=2 argument, this is necessary for the wide
-    # characters output by trans:ascii-aesthetic
-
-Confirm that both translations are in effect:
-
-::
-
-    >>> demo.list_trans_ops()
-    ['trans:ascii-aesthetic', 'trans:wip-squares']
-
-Now, let's try making some more fancy text:
+Overriding Operations with the order Argument
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Override the translation with alternate ops lists without redefining
+the default operation with the ``order`` argument:
 
 ::
 
-    >>> print(demo.translate("KITSUNE EXPRESS"))
+    >>> print(tp.translate("KITSUNE EXPRESS", order=[2,1]))
     Ｋ⃞Ｉ⃞Ｔ⃞Ｓ⃞Ｕ⃞Ｎ⃞Ｅ⃞　Ｅ⃞Ｘ⃞Ｐ⃞Ｒ⃞Ｅ⃞Ｓ⃞Ｓ⃞
+    # remember the contents of tp.trans_dicts.keys()
 
-    # print() formats the string to show the wide spaces as spaces
-
-Now, that's twice the ａｅｓｔｈｅｔｉｃ for the price of one!
-
-To start all over, simply clear the translations from the operation
-with:
+Wrapping Up and Starting All Over
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To start over, simply clear the translations from the TP with:
 
 ::
 
-    >>> demo.trans_ops.clear()
+    >>> tp.clear_trans()
 
 
 Rationale
@@ -151,24 +216,22 @@ and science of text mangling:
    grapheme substitutes, and possibly spark public interest and
    appreciation of language studies.
 
-2. The software in this project is intended to be usable entirely
-   offline; this is not a web API or any other kind of RPC software
-   service run over the Internet.
+2. The software in this project is intended for on-device use; this is
+   not a web API or any other kind of internet RPC software service.
 
-   * Any hacker is welcome to adapt the software herein to run a
-     web service (and get rich doing so) given that the software is
-     free and open-source under GPLv3 T&Cs, but such use is beyond
-     the scope of this project.
+   * Any hacker is still welcome to redistribute this software as
+     a service (and get rich doing so), as the software is free and
+     open-source under GPLv3 T&Cs, but such use is beyond the scope
+     of this project.
 
-3. Amusement value is not the highest priority 😞
+3. Amusement value is not the highest priority, but language nerds
+   can still get plenty of amusement out of the project regardless.
 
 Operating System Support
 ========================
 Unicode fancy text often borrows graphemes from scripts far beyond the
-most common ones (Arabic, Cyrillic, Devanagari, Greek, Han, Hangeul,
-Kana, Latin) and the other Brahmic scripts. Support for most scripts
-seem to be well-covered on Android, Apple (iOS, macOS, etc...) and
-Microsoft Windows systems.
+common ones. Support for most scripts seem to be well-covered on Android,
+Apple (iOS, macOS, etc...) and Microsoft Windows systems.
 
 On GNU/Linux or the libre BSD systems (FreeBSD, OpenBSD, etc...),
 optional font packages may have to be installed to get the fancy
