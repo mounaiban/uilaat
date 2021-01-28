@@ -119,6 +119,18 @@ def dump_page(plane, page):
     warn('dump_page() will be renamed to dump_code_page()', DeprecationWarning)
     return dump_code_page(plane, page)
 
+def key_by_index(d, i, default=None):
+    # get a key from a dict d of index i, return default if i is out of bounds;
+    # i=0 returns the the first key inserted into d.
+    if not isinstance(i, int):
+        raise TypeError("only int indices are accepted")
+    elif not isinstance(d, dict):
+        raise TypeError("only dicts are supported")
+    elif i >= len(d):
+        return default
+    keys = tuple(d.keys())
+    return keys[i]
+
 # Supplementary Mapping Classes
 #
 class CodePointOffsetLookup:
@@ -1106,32 +1118,32 @@ class TextProcessor:
 
     def add_trans_ops(self, k, p=None):
         """
-        Add a translation stage, k, to the operation list,
-        self.trans_ops_list. The argument k may be a name of a translation
-        dictionary in self.trans_dicts, or an integer index representing
-        the k-th dictionary added to the TP.
+        Add a translation k, to the translation operations list,
+        self.trans_ops_list. This list contains keys referencing translations
+        in self.trans_dicts. Translations will be applied as ordered in this
+        list when translate() is used.
 
-        Optionally, the position p of the new translation may be specified.
-        The translation will be added before position p. If p is not specified,
-        the translation will be added at the end of the list.
+        The argument k may be a name of a translation in self.trans_dicts,
+        or its integer index. If integer indices are used, if k==0 references
+        the first key in self.trans_dicts.keys().
+
+        Optionally, the ordinal p of the new translation may be specified.
+        The translation will be added before position p. By default,
+        translations are added to the end of the list.
 
         The same translation can occur more than once on the list.
 
-        This list contains the names of translation dictionaries added to
-        the TP with add_trans_dict(). Translations named self.trans_ops_list
-        will be applied with translate() as ordered in the list, unless
-        overridden.
-
         """
-        dict_names = list(self.trans_dicts.keys())
         if p is None:
             p = len(self.trans_ops_list)
         if isinstance(k, int):
-            dname = dict_names[k]
+            dname = key_by_index(self.trans_dicts, k)
             self.trans_ops_list.insert(p, dname)
         elif isinstance(k, str):
-            if k in dict_names:
+            if k in self.trans_dicts:
                 self.trans_ops_list.insert(p, k)
+            # TODO: Should invalid keys/names be ignored,
+            # or should they raise exceptions?
 
     def clear_trans(self):
         self.trans_dicts.clear()
@@ -1246,20 +1258,10 @@ class TextProcessor:
         self.trans_dicts, while indices refer to the n-th dictionary added.
 
         """
-        def do_lup(i):
-            # Return a name in self.trans_dicts from a numerical index;
-            # do_lup(0) returns the name of the first dict in trans_dicts.
-            dict_names = list(self.trans_dicts.keys())
-            if isinstance(i, int):
-                return dict_names[i]
-            else:
-                return x
-
         if len(order) == 0:
             olist = self.trans_ops_list
         else:
-            m = map(do_lup, order)
-            olist = [s for s in m]
+            olist = [key_by_index(self.trans_dicts, i) for i in order]
 
         out = s
         for tn in olist:
