@@ -1265,9 +1265,15 @@ class TextProcessor:
 
         out = s
         for tn in olist:
-            tdict = self.trans_dicts[tn][0]
-            # TODO: regex preprocessing translations are still not applied,
-            # need to implement them
+            tdata = self.trans_dicts[tn]
+            if len(tdata) > 1:
+                # handle regex preprocessing if defined
+                for p in tdata[1:]:
+                    if type(p[0]) is re.Pattern:
+                        out = (p[0]).sub(p[1],out)
+
+            # now handle lookup-based translations
+            tdict = tdata[0]
             if self.meta[tn].get('reverse-out', False):
                 # handle reversed output
                 tmp_rev = ''
