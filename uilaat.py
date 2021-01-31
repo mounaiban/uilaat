@@ -29,8 +29,6 @@ import re
 from functools import reduce
 from json import JSONDecoder
 from os import listdir, path
-from sfunc import sfunc_from_covar, sfunc_from_list, sfunc_from_re, \
-    sfunc_from_dict, SCOPE_CHAR, SCOPE_STR, SCOPE_NOP # TODO: Remove sfunc's
 from warnings import warn
 
 KEY_DB_NAME = '_db_name'
