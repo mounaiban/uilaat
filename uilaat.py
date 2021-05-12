@@ -699,30 +699,33 @@ class JSONRepo:
         objects.
 
         """
-        first_dict = TranslationDict({})
-        trans_dicts = [first_dict,]
-        if self.current_db_name is None:
-            return None
-        # Handler Functions
-        #
         # Summary of Handler Function mini-API
-        # Arguments: (k, v)
-        #   k - translation key, v - translation value; k-v pairs are loaded
-        #   from the 'trans' object in a UILAAT JSON translation database
+        # Arguments: (k, v, n, dls, **kwargs)
+        #   k - translation key from JSON translation database
+        #   v - translation value from JSON translation database
+        #   n - alternate translation selector
+        #   dls - list of dicts to add the translation to. For
+        #         JSONRepos, this is always trans_dicts.
         #
-        # JSONRepo Instance Variables: dmeta, maketrans, reverse_trans
+        # Optional arguments:
         #   dmeta - 'meta' object of the translation database,
         #   reverse_trans - bool flag to indicate that the translation in the
         #                   database file should be reversed.
         #   maketrans - bool flag to indicate output is for use with
         #               str.translate(); this may have different effects on
-        #               different types of items, but always results in int
+        #               different lookup types, but always results in int
         #               keys being applied.
         #
         # PROTIP: The instance variables are set in the main loop, whose
         #  code begins after the last handler function below.
         #
+        first_dict = TranslationDict({})
+        trans_dicts = [first_dict,]
+        if self.current_db_name is None:
+            return None
+
         def _prep_one_dict(trans_list):
+            # TODO: spin off this function to a class method?
             # Condense a list of translation lookup objects so that all
             # non-regex lookups are combined into a single lookup at index
             # 0 of the list.
@@ -751,112 +754,10 @@ class JSONRepo:
                 out[0][''] = trans_list[0].out_default
             return out
 
-        def _prep_trans(k, v):
-            # String-to-string or int-to-string translation handler
-            v_out = SUBPOINT
-            if isinstance(v, (list, tuple)):
-                if n >= len(v):
-                    v_out = v[0]
-                else:
-                    v_out = v[n]
-            else:
-                v_out = v
-            if maketrans:
-                if isinstance(v, str):
-                    if len(k) == 1:
-                        k = ord(k)
-                    else:
-                        fmt = "{}: multi-char keys unsupported with maketrans"
-                        msg = fmt.format(dmeta[KEY_DB_NAME])
-                        warn(RuntimeWarning, 'msg')
-                    return
-            if reverse_trans:
-                if k == '':
-                    return
-                elif isinstance(v, (list, tuple)):
-                    for item in v:
-                        trans_dicts[0][item] = k
-                else:
-                    trans_dicts[0][v_out] = k
-            else:
-                trans_dicts[0][k] = v_out
-
-        def _prep_trans_ril(k, v):
-            # Code Point Range Translation handler
-            #
-            # Translation Database format summary
-            #  trans: [[ba1,ba2,...], [va1,va2,...]]
-            #  name: CODE_RANGE + ' ' + trans_name
-            #  Please see top of class for CODE_RANGE definition
-            #  DB entry: {name: trans}
-            #  multi-trans DB entry: {name: [trans1, trans2, ...]}
-
-            # PROTIP: k only contains the name of the translation
-            if reverse_trans:
-                fmt = "{}: reverse range translations unsupported"
-                msg = fmt.format(dmeta[KEY_DB_NAME])
-                warn(RuntimeWarning, msg)
-                return
-            it = n
-            if isinstance(v[0][0], (list, tuple)):
-                # handle alternate translations
-                if n > len(v):
-                    it = 0
-                bs = v[it][0]
-                vs = v[it][1]
-            else:
-                bs = v[0]
-                vs = v[1]
-            ril = RangeIndexedList(bs, vs, copy_key=True)
-            trans_dicts.append(ril)
-
-        def _prep_trans_cpoff(k, v):
-            # Code Point Offset translation handler
-            it = n
-            if isinstance(v[0], list):
-                # handle alternate translations
-                if n > len(v):
-                    it = 0
-                args = v[it]
-            else:
-                args = v
-
-            if reverse_trans:
-                offset_tmp = args[2]
-                start = offset_tmp + args[0]
-                end = offset_tmp + args[1]
-                offset = -offset_tmp
-            else:
-                start = args[0]
-                end = args[1]
-                offset = args[2]
-            cpoff = CodePointOffsetLookup(start, end, offset)
-            trans_dicts.append(cpoff)
-
-        def _prep_trans_regex(k, v):
-            # Regex handler
-            if reverse_trans:
-                fmt = "{}: reverse regex translations unsupported"
-                msg = fmt.format(dmeta[KEY_DB_NAME])
-                warn(RuntimeWarning, msg)
-                return
-            it = n
-            if isinstance(v[0], list):
-                # handle alternate translations
-                if n > len(v):
-                    it = 0
-                args = v[it]
-            else:
-                args = v
-            rege = re.compile(args[0])
-            repl = args[1]
-            out = [rege, repl]
-            trans_dicts.append(out)
-
         handlers_k = {
-            self.CODE_OFFSET: _prep_trans_cpoff,
-            self.CODE_RANGE: _prep_trans_ril,
-            self.CODE_REGEX: _prep_trans_regex,
+            self.CODE_OFFSET: self._prep_trans_cpoff,
+            self.CODE_RANGE: self._prep_trans_ril,
+            self.CODE_REGEX: self._prep_trans_regex,
         }
         ### End of Helper Functions ###
 
@@ -874,16 +775,163 @@ class JSONRepo:
                 warn(msg, DeprecationWarning)
             for k in dtrans.keys():
                 if k == '':
-                    handler = _prep_trans
+                    handler = self._prep_trans
                 elif isinstance(k, str):
-                    handler = handlers_k.get(k[0], _prep_trans)
+                    handler = handlers_k.get(k[0], self._prep_trans)
                 else:
-                    handler = _prep_trans
-                handler(k, dtrans[k])
+                    handler = self._prep_trans
+                handler(
+                    k, dtrans[k], n, trans_dicts, maketrans=maketrans,
+                    reverse_trans=reverse_trans
+                )
         if one_dict is True:
             return _prep_one_dict(trans_dicts)
         else:
             return trans_dicts
+
+    def _prep_trans(self, k, v, n, dls, **kwargs):
+        """
+        String-to-string or int-to-string translation handler
+        k is the input string, v is the output; only single-char inputs
+        are supported at the moment
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        maketrans = kwargs.get('maketrans', False)
+        v_out = SUBPOINT
+        if isinstance(v, (list, tuple)):
+            if n >= len(v):
+                v_out = v[0]
+            else:
+                v_out = v[n]
+        else:
+            v_out = v
+        if maketrans:
+            if isinstance(v, str):
+                if len(k) == 1:
+                    k = ord(k)
+                else:
+                    fmt = "{}: multi-char keys unsupported with maketrans"
+                    msg = fmt.format(dmeta[KEY_DB_NAME])
+                    warn(RuntimeWarning, 'msg')
+                return
+        if reverse_trans:
+            if k == '':
+                return
+            elif isinstance(v, (list, tuple)):
+                for item in v:
+                    dls[0][item] = k
+            else:
+                dls[0][v_out] = k
+        else:
+            dls[0][k] = v_out
+
+
+    def _prep_trans_cpoff(self, k, v, n, dls, **kwargs):
+        """
+        Code Point Offset translation handler
+        k is the name of the translation, like "\uf811 aesthetic"
+        v is the definition of the offset lookup, like:
+        [s, e, off] => s: start code point, e: end code point, off: offset
+        when offering alternate translations, wrap everything in an
+        outer array like: [[s0, e0, off0], ... [sN, eN, offN]]
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        it = n
+        if isinstance(v[0], list):
+            # handle alternate translations
+            if n > len(v):
+                it = 0
+            args = v[it]
+        else:
+            args = v
+
+        if reverse_trans:
+            offset_tmp = args[2]
+            start = offset_tmp + args[0]
+            end = offset_tmp + args[1]
+            offset = -offset_tmp
+        else:
+            start = args[0]
+            end = args[1]
+            offset = args[2]
+        cpoff = CodePointOffsetLookup(start, end, offset)
+        dls.append(cpoff)
+
+    def _prep_trans_regex(self, k, v, n, dls, **kwargs):
+        """
+        Regex translation handler
+        k is the name of the translation, like "\uf812 aesthetic"
+        v is a definition like [re, s], re is a regular expression matching
+        target text, s is its replacement string
+
+        when offering alternate translations, wrap everything in outer
+        arrays like:
+        [[re0, s0]...[reN, sN]]
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        if reverse_trans:
+            fmt = "{}: reverse regex translations unsupported"
+            msg = fmt.format(dmeta[KEY_DB_NAME])
+            warn(RuntimeWarning, msg)
+            return
+        it = n
+        if isinstance(v[0], list):
+            # handle alternate translations
+            if n > len(v):
+                it = 0
+            args = v[it]
+        else:
+            args = v
+        rege = re.compile(args[0])
+        repl = args[1]
+        out = [rege, repl]
+        dls.append(out)
+
+    def _prep_trans_ril(self, k, v, n, dls, **kwargs):
+        """
+        Code Point Range Translation handler
+
+        k is the name of the translation, like "\uf813 aesthetic"
+        v is the definition of the offset lookup, like:
+        [s0,e0..,sN,eN],[r0...,rN]
+        s: : start target code point range, e: end code point range,
+        r: replacement code point.
+        There must be either a correspoinding r-value for each s,e pair,
+        or a single r-value.
+
+        when offering alternate translations, wrap everything in outer
+        arrays like:
+        [[[s0A,e0A...sNA,eNA],[r0A...rNA]],[[[s0B,e0B...sNB,eNB],[r0B...rNB]]]
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        if reverse_trans:
+            # TODO: Code point ranges are actually easily
+            # reversed... maybe implement a reverse method, or
+            # even check if the reversal method has been implemented?
+            fmt = "{}: reverse range translations unsupported"
+            msg = fmt.format(dmeta[KEY_DB_NAME])
+            warn(RuntimeWarning, msg)
+            return
+        it = n
+        if isinstance(v[0][0], (list, tuple)):
+            # handle alternate translations
+            if n > len(v):
+                it = 0
+            bs = v[it][0]
+            vs = v[it][1]
+        else:
+            bs = v[0]
+            vs = v[1]
+        ril = RangeIndexedList(bs, vs, copy_key=True)
+        dls.append(ril)
 
     def _set_repo_dir(self, rdpath):
         db_names = self.list_trans(rdpath)
