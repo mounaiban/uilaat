@@ -983,20 +983,28 @@ class JSONRepo:
         else:
             raise ValueError('invalid option for incl= argument')
 
-    def load_db(self, db_name):
-        # TODO: Change to load_trans() to be more intuitive for
-        # future support for other DBMS (e.g. SQL, MongoDB, OrientDB...)
-        # that can store multiple translations per database
+    def load_db(self, name):
         """
-        Loads a database file from the repository.
+        An alias for _load_trans() on JSONRepo.
+
+        JSONRepo files contain only one database per file.
+
+        """
+        self._load_trans(name)
+
+    def _load_trans(self, name):
+        """
+        Links the JSONRepo to a translation file. Returns None.
 
         Where:
         jr = JSONRepo('trans')
 
         jr.load_db('aesthetic2')
-        loads the 'aesthetic2' database from the 'trans' repository
+        links the 'aesthetic2' translation file from the 'trans'
+        repository, importing other files linked with the 'trans-include'
+        keyword as necessary.
 
-        This method launches the recursive loading process, and performs
+        This method launches the recursive linking process, and performs
         the necesary cleanups that must be excluded from the recursive
         loading process.
 
@@ -1008,49 +1016,49 @@ class JSONRepo:
         self._filename_memo.clear()
         self.current_db_name = None
         try:
-            self._do_load_db(db_name)
-            self.current_db_name = db_name
+            self._do_load_trans(name)
+            self.current_db_name = name
         finally:
             if self._fh is not None:
                 self._fh.close()
                 self._fh = None
 
-    def _do_load_db(self, db_name):
+    def _do_load_trans(self, name):
         """
         Performs the recursive process of reading in data from a database
         files, together with other inclusion-referenced database files.
         The results are cached in self._tmp.
 
-        This method is intended to be called from load_db() only.
+        This method is intended to be called from load_trans() only.
 
         """
-        tmp_path = self._get_db_path(db_name)
+        tmp_path = self._get_db_path(name)
         if self._fh is not None:
             self._fh.close()
         self._fh = open(tmp_path, mode='r', encoding='utf-8')
         jd = JSONDecoder()
         tmp_dict = jd.decode(self._fh.read())
         # insert runtime metadata
-        tmp_dict['meta'][KEY_DB_NAME] = db_name
+        tmp_dict['meta'][KEY_DB_NAME] = name
         ##
         self._tmp.insert(0, tmp_dict)
-        self._filename_memo.insert(0, db_name)
+        self._filename_memo.insert(0, name)
         incs = self._tmp[0].get('trans-include', [])
         if len(incs) > 0:
             for e in incs:
-                if e == db_name:
+                if e == name:
                     fmt = 'trans-include: {}: cannot include self'
-                    msg = fmt.format(db_name)
+                    msg = fmt.format(name)
                     warn(msg, RuntimeWarning)
                 elif e in self._filename_memo:
                     fmt = 'trans-include: {} to {}: inclusion loop detected'
-                    msg = fmt.format(db_name, e)
+                    msg = fmt.format(name, e)
                     warn(msg, RuntimeWarning)
                 else:
-                    self._do_load_db(e)
+                    self._do_load_trans(e)
 
-    def _get_db_path(self, db_name):
-        filename = db_name + SUFFIX_JSON
+    def _get_db_path(self, name):
+        filename = name + SUFFIX_JSON
         return path.join(self._repo_dir, filename)
 
     def _dump_trans(self, full=False):
@@ -1059,13 +1067,6 @@ class JSONRepo:
         # in full. Alternate dictionaries will only contain differences
         # from the first.
         raise NotImplementedError
-
-    def _str_to_keys(self, s):
-        # Convert specially-formatted string into key list for creating
-        # CodePointOffsetLookup and RangeIndexedList objects.
-        if isinstance(s, str):
-            if ord(s[0]) & 0xF800 == 0xF800:
-                return s.split(' ')[1:]
 
 
 # TextProcessor Class
