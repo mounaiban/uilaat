@@ -26,6 +26,7 @@ A mini-library for working with decorative Unicode text
 # Unicode is a registered trademark of Unicode, Inc.
 
 import re
+from bisect import bisect_right
 from functools import reduce
 from json import JSONDecoder
 from os import listdir, path
@@ -223,7 +224,8 @@ class RangeIndexedList:
         * bounds is a sorted sequence (list, tuple), of int's that
           specifiy ranges; zero and even-indexed items specify
           range starts and odd-indexed items specify range stops.
-          Ranges must not overlap.
+          Ranges must not overlap. Points may be embedded by using
+          the same value for start and stop.
 
         * values is a sequence of items specifying items to be returned
           as a result of a lookup. Each item corresponds to a range
@@ -445,8 +447,9 @@ class RangeIndexedList:
            bounds having an even number of values.
 
         2. The bounds are sorted and non-overlapping; this is determined
-           by ensuring all bounds in ``bounds`` are sorted smallest first,
-           and that there is gap of at least 1 between bounds.
+           by ensuring all bounds in ``bounds`` are sorted smallest first.
+           A start must be at least 1 higher than the last end. An end
+           must be equal or larger than its corresponding start.
 
         3. There is a value for every bound; this is determined by making
            sure ``values`` has either one, or half of the number of values
@@ -469,8 +472,12 @@ class RangeIndexedList:
         t = type(bounds[0])
         i = 1
         for b in bounds[1:]:
-            if b <= bounds[i-1]:
-                msg = 'bounds[{}]: must be larger than the last'.format(i)
+            if i >= 2 and not is_odd(i):
+                if b <= bounds[i-1]:
+                    msg = 'bounds[{}]: range must start after last end'.format(i)
+                    raise ValueError(msg)
+            if b < bounds[i-1]:
+                msg = 'bounds[{}]: cannot be smaller than last value'.format(i)
                 raise ValueError(msg)
             if type(b) != t:
                 msg = 'all values must be of the same type as values[0]'
@@ -496,32 +503,19 @@ class RangeIndexedList:
         greater side of the last range.
 
         """
-        i_len = len(self._bounds)
-        i_start = 0
-        i_end = i_len - 1
-        # PROTIP: binary search
-        if key > self._bounds[i_end]:
-            return (i_len, False)
-        i = i_end // 2
-        while i_end - i_start > 1:
-            i = i_start + ((i_end-i_start) // 2)
-            k_rk = self._bounds[i]
-            if key == k_rk:
-                return (i, True)
-            if key <= k_rk:
-                i_end = i
+        i = bisect_right(self._bounds, key)
+        if i == 0:
+            if key != self._bounds[i]:
+                return (0, False)
             else:
-                i_start = i
-
-        # if key was not found, determine the best index
-        if key > self._bounds[i_start]:
-            return (i_end, (key == self._bounds[i_end]))
+                return (0, True)
+        elif i >= 1:
+            if key != self._bounds[i-1]:
+                return (i, False)
+            else:
+                return (i-1, True)
         else:
-            return (i_start, (key == self._bounds[i_start]))
-            # PROTIP: the final equality check is required because the
-            # search loop above stops running as soon as i_end meets
-            # i_start, missing out on the chance to raise the key found
-            # flag.
+            raise(IndexError, 'unexpected negative index reached')
 
 class TranslationDict(dict):
     """
