@@ -38,11 +38,11 @@ SUFFIX_JSON = '.json'
 VERSION = '0.5'
 is_odd = lambda x : x%2 != 0
 
-#
-# There are notes in the comments at the end of this module.
-#
-
 # Helper functions
+# See docs/json-repo-surrogates.rst for an explanation on how these
+# lambdas work
+#
+# TODO: Surrogate functions seem unused, remove?
 #
 utf16_hs = lambda v:((((v & 0x1F0000)>>16)-1)<<6) | ((v & 0xFC00)>>10) | 0xD800
     # get UTF-16 high surrogate ordinal from code point ordinal
@@ -52,6 +52,7 @@ utf16_ls = lambda v:(v&0x3ff) | 0xdc00
     # get UTF-16 low surrogate ordinal code point ordinal
 utf16_ls_c = lambda c: chr(utf16_ls(ord(c)))
     # get low surrogate from character
+
 def surr(c):
     """
     Get UTF-16 surrogate pair for a character
@@ -119,8 +120,11 @@ def dump_page(plane, page):
     return dump_code_page(plane, page)
 
 def key_by_index(d, i, default=None):
-    # get a key from a dict d of index i, return default if i is out of bounds;
-    # i=0 returns the the first key inserted into d.
+    """
+    Get a key from a dict d of index i, return default if i is out of bounds.
+    key_by_index(d, 0) returns the the first key inserted into d.
+
+    """
     if not isinstance(i, int):
         raise TypeError("only int indices are accepted")
     elif not isinstance(d, dict):
@@ -135,15 +139,14 @@ def key_by_index(d, i, default=None):
 class CodePointOffsetLookup:
     """
     A Unicode Code Point offset lookup that mimics a read-only dict.
-    Accepts code point values and returns a single character
-    corresponding to the offset code point.
+    Accepts code points and returns a single character corresponding
+    to the offset code point.
 
     This class is intended for use with str.translate().
 
-    Where:
-    cpol = CodePointOffsetLookup(a, b, off)
+    See __init__ for details on creating a new lookup, and __getitem__
+    for help on using it.
 
-    cpol[x] == chr(x + off)
     """
     def dict(self):
         """
@@ -159,7 +162,15 @@ class CodePointOffsetLookup:
         return out
 
     def __init__(self, start, end, offset):
+        """
+        Creating a CodePointOffsetLookup:
+        cpol = CodePointOffsetLookup(start, end, offset)
 
+        * start is the first code point accepted by the CPOL
+
+        * end is the last code point accepted
+
+        """
         # validate start and end
         if (isinstance(start, int) is False) or (isinstance(end, int) is False):
             raise ValueError('both start and end must be int')
@@ -172,7 +183,7 @@ class CodePointOffsetLookup:
             raise ValueError('offset must be int')
         elif start+offset < 0:
             raise ValueError('offset must not cause negative values to return')
-
+        ###
         self._start = start
         self._end = end
         self._offset = offset
@@ -189,6 +200,16 @@ class CodePointOffsetLookup:
             and (self._offset == other._offset)
 
     def __getitem__(self, key):
+        """
+        Using a CodePointOffsetLookup:
+
+        Given cpol = CodePointOffsetLookup(a, b, off),
+
+        cpol[x] == chr(x + off) if a >= x >= b
+
+        LookupError is raised if x < a or x > b
+
+        """
         # validate key
         if isinstance(key, int) is False:
             raise ValueError('only int keys are supported')
@@ -196,7 +217,6 @@ class CodePointOffsetLookup:
             raise LookupError('requested translation out of range')
         elif key < self._start:
             raise LookupError('requested translation out of range')
-
         out = key + self._offset
         if out < 0:
             raise ValueError('negative code point suppressed')
@@ -213,33 +233,37 @@ class RangeIndexedList:
     This class, when used with int keys, is intended for use with
     str.translate().
 
+    See __init__ for details on creating a new lookup, and __getitem__
+    for help on using it.
+
     """
     DEFAULT_VALUE = True
 
     def __init__(self, bounds, values=None, **kwargs):
         """
         How to create a basic RangeIndexedList:
-        L = RangeIndexedList(keys, values)
+        L = RangeIndexedList(bounds, values)
 
         * bounds is a sorted sequence (list, tuple), of int's that
-          specifiy ranges; zero and even-indexed items specify
-          range starts and odd-indexed items specify range stops.
-          Ranges must not overlap. Points may be embedded by using
-          the same value for start and stop.
+          specifiy ranges; zero and even-indexed elements specify
+          key range starts and odd-indexed items specify key range
+          stops. Ranges must not overlap.
+          Points may be embedded by using the same value for start and
+          stop.
 
-        * values is a sequence of items specifying items to be returned
-          as a result of a lookup. Each item corresponds to a range
-          pair in keys, values[0] is referenced to by all values betwen
-          keys[0] and keys[1], and so on. If there is only one value
-          in values, this item will be shared between all ranges. Thus,
-          there must be exactly one value, or half as many values as
-          bounds.
+        * values is a sequence of items specifying values to be returned
+          as a result of a lookup.
+          Each item in value corresponds to a range pair in keys:
+
+          Given a lookup key k,
+          if bounds[0] <= k <= bounds[1]: k == values[0]
+          if bounds[2] <= k <= bounds[3]: k == values[1]
+
+          and so on...
+
+          Also, len(bounds) == len(values)/2
 
         Accepted keyword arguments:
-
-        * default - when values is None, this value will be returned
-           for all keys falling into any range, if not specified,
-           this argument is set to True.
 
         * copy_key - (bool) if set to True, all instances of the Unicode
            Replacement Character, U+FFFC, in the output will be replaced
@@ -258,6 +282,11 @@ class RangeIndexedList:
         self._values = None
         self._validate = kwargs.get('validate', True)
 
+        # TODO: Default value is deprecated, please use a list with a
+        # single value instead.
+        if self._default:
+            msg = 'default values are deprecated; use single-value lists instead'
+            warn(msg, DeprecationWarning)
         if values is None:
             self._values = [self._default,]
         else:
@@ -585,6 +614,7 @@ class TranslationDict(dict):
         Return a plain dict equivalent to the TranslationDict.
 
         """
+        # TODO: rename to dict() if feasible
         temp = {}
         for k in self.keys():
             temp[k] = self.__getitem__(k)
@@ -668,8 +698,8 @@ class JSONRepo:
         Return a list of translation objects from the currently selected
         repository. Remember to load a database using load_db() first.
         Translation objects may be dict-likes or a two-item list containing
-        [creg, repl,] where creg is a compiled regex, and repl is a string
-        to replace text matching creg.
+        [re, repl,] where re is a compiled regex, and repl is a string
+        to replace text matching re.
 
         Given this translation loaded from a database:
         {'a': '4', 'b':['|3', '\ua7b4', '\U0001d7ab'], 'c':['<', '\U0001f30a']}
@@ -695,8 +725,8 @@ class JSONRepo:
         """
         # Summary of Handler Function mini-API
         # Arguments: (k, v, n, dls, **kwargs)
-        #   k - translation key from JSON translation database
-        #   v - translation value from JSON translation database
+        #   k - key: mapping target from JSON translation database
+        #   v - value: mapping replacement from JSON translation database
         #   n - alternate translation selector
         #   dls - list of dicts to add the translation to. For
         #         JSONRepos, this is always trans_dicts.
@@ -749,9 +779,9 @@ class JSONRepo:
             return out
 
         handlers_k = {
-            self.CODE_OFFSET: self._prep_trans_cpoff,
-            self.CODE_RANGE: self._prep_trans_ril,
-            self.CODE_REGEX: self._prep_trans_regex,
+            self.CODE_OFFSET: self._prep_mapping_cpoff,
+            self.CODE_RANGE: self._prep_mapping_ril,
+            self.CODE_REGEX: self._prep_mapping_regex,
         }
         ### End of Helper Functions ###
 
@@ -769,11 +799,11 @@ class JSONRepo:
                 warn(msg, DeprecationWarning)
             for k in dtrans.keys():
                 if k == '':
-                    handler = self._prep_trans
+                    handler = self._prep_mapping
                 elif isinstance(k, str):
-                    handler = handlers_k.get(k[0], self._prep_trans)
+                    handler = handlers_k.get(k[0], self._prep_mapping)
                 else:
-                    handler = self._prep_trans
+                    handler = self._prep_mapping
                 handler(
                     k, dtrans[k], n, trans_dicts, maketrans=maketrans,
                     reverse_trans=reverse_trans
@@ -783,9 +813,9 @@ class JSONRepo:
         else:
             return trans_dicts
 
-    def _prep_trans(self, k, v, n, dls, **kwargs):
+    def _prep_mapping(self, k, v, n, dls, **kwargs):
         """
-        String-to-string or int-to-string translation handler
+        String-to-string or int-to-string mapping handler
         k is the input string, v is the output; only single-char inputs
         are supported at the moment
 
@@ -822,13 +852,13 @@ class JSONRepo:
             dls[0][k] = v_out
 
 
-    def _prep_trans_cpoff(self, k, v, n, dls, **kwargs):
+    def _prep_mapping_cpoff(self, k, v, n, dls, **kwargs):
         """
-        Code Point Offset translation handler
-        k is the name of the translation, like "\uf811 aesthetic"
+        Code Point Offset mapping handler
+        k is the name of the mapping, like "\uf811 aesthetic"
         v is the definition of the offset lookup, like:
         [s, e, off] => s: start code point, e: end code point, off: offset
-        when offering alternate translations, wrap everything in an
+        when offering alternate mappings, wrap everything in an
         outer array like: [[s0, e0, off0], ... [sN, eN, offN]]
 
         Please see get_trans() for info on the other arguments
@@ -855,14 +885,14 @@ class JSONRepo:
         cpoff = CodePointOffsetLookup(start, end, offset)
         dls.append(cpoff)
 
-    def _prep_trans_regex(self, k, v, n, dls, **kwargs):
+    def _prep_mapping_regex(self, k, v, n, dls, **kwargs):
         """
-        Regex translation handler
-        k is the name of the translation, like "\uf812 aesthetic"
+        Regex handler
+        k is the name of the mapping, like "\uf812 aesthetic"
         v is a definition like [re, s], re is a regular expression matching
         target text, s is its replacement string
 
-        when offering alternate translations, wrap everything in outer
+        when offering alternate mappings, wrap everything in outer
         arrays like:
         [[re0, s0]...[reN, sN]]
 
@@ -876,7 +906,7 @@ class JSONRepo:
             return
         it = n
         if isinstance(v[0], list):
-            # handle alternate translations
+            # handle alternate mappings
             if n > len(v):
                 it = 0
             args = v[it]
@@ -887,11 +917,11 @@ class JSONRepo:
         out = [rege, repl]
         dls.append(out)
 
-    def _prep_trans_ril(self, k, v, n, dls, **kwargs):
+    def _prep_mapping_ril(self, k, v, n, dls, **kwargs):
         """
-        Code Point Range Translation handler
+        Code Point Range Mapping handler
 
-        k is the name of the translation, like "\uf813 aesthetic"
+        k is the name of the mapping, like "\uf813 aesthetic"
         v is the definition of the offset lookup, like:
         [s0,e0..,sN,eN],[r0...,rN]
         s: : start target code point range, e: end code point range,
@@ -899,7 +929,7 @@ class JSONRepo:
         There must be either a correspoinding r-value for each s,e pair,
         or a single r-value.
 
-        when offering alternate translations, wrap everything in outer
+        when offering alternate mappings, wrap everything in outer
         arrays like:
         [[[s0A,e0A...sNA,eNA],[r0A...rNA]],[[[s0B,e0B...sNB,eNB],[r0B...rNB]]]
 
@@ -916,7 +946,7 @@ class JSONRepo:
             return
         it = n
         if isinstance(v[0][0], (list, tuple)):
-            # handle alternate translations
+            # handle alternate mappings
             if n > len(v):
                 it = 0
             bs = v[it][0]
@@ -1324,22 +1354,4 @@ class TextProcessor:
             else:
                 out = out.translate(tdict)
         return out
-
-# Important Information
-# ---------------------
-#
-# Substitution Points (SP's)
-# ==========================
-# SPs are intended to be a platform-agnostic method of including
-# characters matched by a dictionary key or regular expression into the
-# default translation output. They are indicated by U+FFFC.
-# (See also: Unicode Standard, Section 23.8)
-#
-# In an example default substitution:
-#
-# dict: {'':'\ufffc\u2e04'}
-# code points: U+FFFC + U+2E04
-# input: 'J'
-# output: 'J' + U+2E04
-#
 

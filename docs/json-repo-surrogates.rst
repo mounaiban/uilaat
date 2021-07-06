@@ -3,6 +3,9 @@ UILAAT JSON Database: Comment on UTF-16 Surrogates
 This is an explanation for those new to the concept of surrogate
 pairs used in JSON Unicode escape sequences.
 
+This document assumes an understanding of binary arithemtic,
+including the bitwise operators ``and`` and ``or``.
+
 Summary
 ~~~~~~~
 This is one way surrogate pairs may be created in Python:
@@ -42,7 +45,7 @@ from code page ``x``), at the expense of storage space.
 
 Due to constraints of compatibility, the arithmetic used in obtaining
 the surrogate pairs may be rather contrived to the uninitiated, but
-this can be overcome by breaking down the process into small steps.
+can be made easier to understand by breaking down the process.
 
 Working Out Surrogate Pairs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -57,29 +60,28 @@ for code points ``U+10000`` to ``U+100000`` inclusive only.
 
    * The other 11 bits are encoded in the *high surrogate*
 
-2. Obtain the low surrogate by a bitwise and ``&`` with the lowest ten
-   bits. Combine the bits with ``0xDC00`` with a bitwise or ``|``;
-   The low surrogate is complete.
-
-   * The lowest ten bits 0 to 9 may be masked out by ``v & 0x3FF``.
+2. Obtain the low surrogate: extract it by performing a bitwise or
+   ``|`` on the code point with ``0xDC00``. Mask it off with a bitwise
+   and ``&`` with ``0x3FF``. The low surrogate is complete.
 
 3. Prepare the high surrogate by splitting the high 11 bits into two
    further parts:
 
    * high upper for bits 16 to 20 inclusive of the original value
-     (5 bits), obtain by masking out the bits with ``v & 0x1F0000``,
+     (5 bits): extract by masking out the bits with ``v & 0x1F0000``,
      and shifting sixteen bits to the right.
 
    * high lower for bits 10 to 15 inclusive of the original value
-     (6 bits), obtain by masking out with ``v & 0xFC00`` and shifting
+     (6 bits): extract by masking out with ``v & 0xFC00`` and shifting
      ten bits to the right.
 
 4. Obtain the high surrogate by subtracting the high upper by one,
    then recombining high upper, high lower and the high surrogate
    prefix ``0xD800``.
 
-   * Recombine the components with a bitwise or, with shifts to the
-     left to put the bits in the correct places:
+   * Recombine the high upper and high lower with a bitwise or,
+     shifting to the left as necessary to put the bits in the correct
+     places:
      ``(((v & 0x1F0000)>>16 - 1) << 6) | ((v & 0xFC00)>>10) | 0xD800``
 
    * The subtraction is already done in the process above.
