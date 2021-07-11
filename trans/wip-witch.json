@@ -1,0 +1,23 @@
+{
+    "meta": {
+        "version-format": 0.5,
+        "reverse-trans": false,
+        "comments": {
+            "en-AU": "Witch House-esque effect."
+        },
+        "authors": ["Moses Chong"],
+        "copyright": "PUBLIC DOMAIN. NO RIGHTS RESERVED.",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/legalcode"
+    },
+    "trans": {
+        "": ["\ufffc", "\ufffc\u036f", "\ufffc\u0310", "\ufffc\u0303", "\ufffc\u0307"],
+        "a": ["▲", "⨻"],
+        "A": ["▲", "⨻"],
+        "o": ["🜨", "🜥"],
+        "O" : "⨁",
+		"*" : "⛧",
+        "\uf811 digits": [48, 57, 65248],
+		"\uf812 trance": ["TRANCE", "🜒🝈🜁🝱🝑🝗"]
+    }
+}
+

@@ -1,37 +1,37 @@
-UILAAT Architecture and Glossary (0.5)
---------------------------------------
+UILAAT Architecture and Glossary (since 0.6)
+--------------------------------------------
 This is a summary of the software architecture used within the library,
 and the technical terms used in its documentation.
 
 Glossary
 ========
+
 The following technical terms are used as follows:
 
-* **Translation**: A single process of substituting text, or more
-  precisely, code points, for another according to a specification.
+* **Target**: A character, string or pattern to be replaced or removed.
 
-* **Preprocessing**: The process of preparing text for a *translation*.
-  This may include normalising characters into precomposed forms,
-  stripping control characters and redacting confidential information.
-
-* **Operation**: The process of changing text from one form to another
-  designated final or intermediate form. A single operation may involve
-  multiple *translation* or *preprocessing* stages.
-
-* **Target**: A particular string to be replaced or removed during
-  a *translation*, *preprocessing* or *operation*.
-
-* **Replacement**: Strings to replace a *target*.
+* **Replacement**: A string or character to replace a *target*.
 
 * **Mapping**: The relationship between a *target* and its *replacement*.
 
-* **Idempotence**: The property of an *operation* or *translation* that,
-  when performed two or more times, has an identical effect to performing
-  it only once.
+* **Translation**: A collection or set of one or more *mappings*.
 
-* **Database**: A consolidated store of information. In the context this
-  software, databases contain information on how to perform *operations*.
-  Frequently abbreviated to **DB** in documentation.
+* **Operation**: The process of changing text from one form to another
+  designated final or intermediate form. A single operation may involve
+  multiple *translations* or *preprocessing* stages.
+
+* **Preprocessing**: The process of preparing text for a *translation*.
+  This includes normalising characters into precomposed forms, stripping
+  control characters and redacting confidential information.
+  Preprocessing is optional.
+
+* **Idempotence**: The property of an *operation* that, when performed
+  two or more times, has an identical effect to performing it only once.
+
+* **Database**: A consolidated store of information. In this context,
+  a collection of information necessary to replicate *operations*.
+  Databases may include translations and other metadata to guide the
+  operations. Frequently abbreviated to **DB** in documentation.
 
 * **Repository**: A software device that enables access to a *database*,
   in order to load operational information in a ready-to-use format.
@@ -47,23 +47,27 @@ See Also
 * **Code Point**: defined in the *Unicode Standard Core Specification*,
   Chapter 2.4.
 
+* **Character**: defined in the *Unicode Standard Core Specification*,
+  Chapter 2.4.
+
 Architecture
 ============
+
 UILAAT's architecture comprises three main parts:
 
-1. **Translation Databases** that contain details on how to perform
-   translations and operations
+1. **Databases** that contain details on how to perform translations
+   and operations
 
-2. **Repositories** to load the information from the Databases
+2. **Repositories** to load the information from the *Databases*
 
-3. **Text Processors** organise operations that produce output text
+3. **Text Processors** to organise operations that produce output text
 
 Here is an example of the stack used by the Demo Text Processor
 
 +---------------------------+
 | **Text Processor**        |
 |                           |
-| ``DemoTP``                |
+| ``TextProcessor``         |
 +---------------------------+
 | **Repository**            |
 |                           |
@@ -80,7 +84,7 @@ of another stack like:
 +---------------------------+
 | **Text Processor**        |
 |                           |
-| ``DemoTP``                |
+| ``TextProcessor``         |
 +---------------------------+
 | **Repository**            |
 |                           |

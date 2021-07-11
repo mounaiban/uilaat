@@ -13,8 +13,8 @@ and combining characters.
 UILAAT is a part of yet another chapter in the history of an Internet
 tradition that resulted from the encounter between an ambitious goal, to
 proliferate telegraphic typography support for every known (and unknown)
-written language system (along with their typographic ornaments), and
-the human fascination with the foreign and exotic.
+written language and dingbat, and the human fascination with
+the foreign and exotic.
 
 *UILAAT is free software, licensed to you under the Terms of the GNU
 General Public License, Version 3 or later. Please view the LICENSE file
@@ -49,8 +49,8 @@ Steps
 
 5. Apply the operations to input strings to make fancy text!
 
-Demo
-~~~~
+Demo and Quick Start
+~~~~~~~~~~~~~~~~~~~~
 There is a demo module ``demos/demo.py`` which contains a ready-to-play
 Text Processor. To run the demo, run the following command from the repo
 root (same directory as the main module ``uilaat.py``):
@@ -62,95 +62,65 @@ root (same directory as the main module ``uilaat.py``):
 You should end up in the Python interactive prompt. There should be a
 TP called ``demo``.
 
-Preparing Repositories and TPs
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Please ensure that the necessary components have been imported:
+A database and repository has been prepared for you. The demonstration TP
+has been linked to a built-in database ``trans`` via a repository named
+``jr``.
 
-::
+Loading Translations and Preparing Operations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In order to start making fancy text, the translations have to be loaded
+and queued into an operation list.
 
-    from uilaat import JSONRepo, TextProcessor
-
-Create a Repository like this:
-
-::
-
-    trepo = JSONRepo("trans")
-
-JSON Repositories are the only supported repositories at time of writing,
-``trans`` is a JSON repository containing built-in translations.
-
-With the JSONRepo now ready, create a TP and attach the repository:
-
-::
-
-    tp = TextProcessor()
-    tp.add_repo(trepo)
-
-Verify that the repository has been attached:
-
-::
-
-    >>> tp.repos
-    {'trans': JSONRepo('trans')}
-    # the name 'trans' was automatically detected by the TextProcessor
-
-Alternatively, repositories may be added more explicitly when creating
-the TP:
-
-::
-
-    tp2 = TextProcessor({'repo2': JSONRepo('trans')})
-    # attaching repos this way allows overriding of the repo names,
-    # the JSONRepo will be added as 'repo2', instead of 'trans'
-
-Loading Translations and Defining Operations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Bring up a list of available translations with the list_trans() method:
 
 ::
 
-    tp.list_trans()
+    demo.list_trans()
 
 The list will contain *fully-qualified* names which include the name of the
 database of the translation.
 
-Add translations to the TP's dictionary to enable their use, like this:
+Load the translations like this:
 
 ::
 
-    tp.add_trans_dict('trans:wip-squares', n=0)
-    tp.add_trans_dict('trans:wip-squares', n=2) # alternate translation
-    tp.add_trans_dict('trans:ascii-aesthetic')
-    tp.add_trans_dict('ascii-tiny-capitals')    # non-FQ name
+    demo.add_trans_dict('trans:wip-squares', n=0)
+    demo.add_trans_dict('trans:wip-squares', n=2) # alternate translation
+    demo.add_trans_dict('trans:ascii-aesthetic')
+    demo.add_trans_dict('ascii-tiny-capitals')    # non-FQ name
 
-
-Non-fully qualified names may be safely used if there are no databases
-across multiple repositories sharing the same name. The ``n`` argument
-selects alternate mappings where available.
+Non-fully qualified names may be safely used when using only one repository,
+or if there aren't multiple databases from different repos sharing the same
+name. The ``n`` argument selects alternate mappings where available.
 
  *PROTIP:* translations that lack alternate mappings will produce the same
  output regardless of ``n`` index.
 
-Confirm that the translations have been added:
+Confirm that the translations have been added like this:
 
 ::
 
-    >>> tp.trans_dicts.keys()
-    dict_keys(['trans:wip-squares.0', 'trans:wip-squares.2', 'trans:ascii-aesthetic.0', 'trans:ascii-tiny-capitals.0'])
+    >>> for d in demo.trans_dicts.keys():
+    ...     print(d)
+    ...
+    trans:wip-squares.0
+    trans:wip-squares.2
+    trans:ascii-aesthetic.0
+    trans:ascii-tiny-capitals.0
 
-Note that translation names in ``trans_dicts`` have a dot-and-number suffix.
-This corresponds to the alternate translation index specified by the ``n``
-argument when the translation was added to the TP.
+Note the a dot-and-number suffixes; these correspond to the alternate
+translation index specified by the ``n`` argument when the translation was
+added to the TP.
 
-Define the default translation operation by adding one or more dictionaries
+Define the default translation operation by queuing one or more dictionaries
 like this:
 
 ::
 
-    tp.add_trans_ops('trans:wip-squares.0')
-    tp.add_trans_ops(3)
+    demo.add_trans_ops('trans:wip-squares.0')
+    demo.add_trans_ops(3)
 
-Translation names must match those returned by ``tp.trans_dicts.keys()``.
+Translation names must match those in ``demo.trans_dicts.keys()``.
 Numerical indices are also accepted. The ``3`` is a reference to
 ``trans:ascii-tiny-capitals.0``.
 
@@ -158,40 +128,43 @@ Verify the operation by checking the contents of ``trans_ops_list``:
 
 ::
 
-    >>> tp.trans_ops_list
+    >>> demo.trans_ops_list
     ['trans:ascii-tiny-capitals.0, 'trans:wip-squares.0']
 
 Finally, use ``translate()`` to generate some text:
 
 ::
 
-    >>> print(tp.translate("kitsune express"))
+    >>> print(demo.translate("kitsune express"))
     ᴋ⃞  ɪ⃞  ᴛ⃞  s⃞  u⃞  ɴ⃞  ᴇ⃞  　ᴇ⃞  x⃞  ᴘ⃞  ʀ⃞  ᴇ⃞  s⃞  s⃞  
     # print() formats the string to show wide spaces and squares
 
 How's that for a start? 🦊
 
-But wait, there's more!
-
+Removing Operations
+~~~~~~~~~~~~~~~~~~~
 Remove a translation from the default operation with ``pop_trans_ops()``:
 
 ::
 
-    >>> tp.pop_trans_ops('trans:wip-squares.0')
+    >>> demo.pop_trans_ops('trans:wip-squares.0')
     'trans:wip-squares.0'
-    >>> tp.translate("kitsune express")
+    >>> demo.translate("kitsune express")
     'ᴋɪᴛsuɴᴇ ᴇxᴘʀᴇss'
 
 Overriding Operations with the order Argument
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Override the translation with alternate ops lists without redefining
-the default operation with the ``order`` argument:
+The ``order`` argument references the dictionaries in ``trans_dicts``
+directly, overriding the default translation:
 
 ::
 
-    >>> print(tp.translate("KITSUNE EXPRESS", order=[2,1]))
+    >>> print(demo.translate("KITSUNE EXPRESS", order=[2,1]))
     Ｋ⃞Ｉ⃞Ｔ⃞Ｓ⃞Ｕ⃞Ｎ⃞Ｅ⃞　Ｅ⃞Ｘ⃞Ｐ⃞Ｒ⃞Ｅ⃞Ｓ⃞Ｓ⃞
-    # remember the contents of tp.trans_dicts.keys()
+    # remember the contents of demo.trans_dicts.keys()
+
+In this example, ``trans:ascii-aesthetic.0`` was applied to the input
+text, followed by ``trans:wip-squares.2``.
 
 Wrapping Up and Starting All Over
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -199,8 +172,62 @@ To start over, simply clear the translations from the TP with:
 
 ::
 
-    >>> tp.clear_trans()
+    >>> demo.clear_trans()
 
+*PROTIP:* To exit the Python shell, press CTRL-D on an empty command
+line.
+
+Application Support and Previewing Your Text
+============================================
+
+Web Sites and Applications
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Most web sites or apps provide their own fonts, so levels of support
+will vary.
+
+Page inspectors featured in most desktop web browsers may be used as
+a previewing tool, by making transient edits to content currently
+displayed in the browser:
+
+Chrome
+``````
+1. Press ``CTRL + Shift + C``/``Cmd + Opt + C`` to bring up the
+   `Inspect option <https://developer.chrome.com/docs/devtools/open/#elements>`_.
+   The DevTools pane will also appear.
+
+2. Select some text of the same type as what you are going to post or
+   insert (such as a comment or caption) with the element picker. 
+   Further navigation in `Elements <https://developer.chrome.com/docs/devtools/dom/>`_ in the DevTools may be needed to reach the text.
+
+3. Once you find the text, simply double-click on it in Elements to
+   edit it, then copy your own text over to preview it.
+
+4. Close DevTools by clicking on the ``X`` on the far upper right hand
+   side of the pane.
+
+Firefox
+```````
+1. Press ``CTRL/Cmd + Shift + C`` to bring up the Element Picker. The
+   Toolbox pane will also appear.
+
+2. Select some text of the same type as what you are going to post or
+   insert (such as a comment or caption) with the element picker. 
+   Further navigation in the `inspector <https://developer.mozilla.org/en-US/docs/Tools/Page_Inspector>`_ may be needed to reach the text.
+
+3. Once you find the text, simply double-click on it in the inspector to
+   edit it, then copy your own text over.
+
+4. Close the Toolbox by clicking on the ``X`` on the far upper right hand
+   side of the pane, or by pressing ``CTRL + Shift + I``/``Cmd + Opt + I``
+
+On devices with limited processing speed, inspectors may be rather
+unresponsive on long and complex pages. Try testing on a shorter page
+where possible.
+
+Some apps or sites may restrict the use of fancy text.
+
+For other browsers, consult the relevant documentation for instructions
+on how to do this, where available.
 
 Rationale
 =========
@@ -226,54 +253,6 @@ and science of text mangling:
 
 3. Amusement value is not the highest priority, but language nerds
    can still get plenty of amusement out of the project regardless.
-
-Operating System Support
-========================
-Unicode fancy text often borrows graphemes from scripts far beyond the
-common ones. Support for most scripts seem to be well-covered on Android,
-Apple (iOS, macOS, etc...) and Microsoft Windows systems.
-
-On GNU/Linux or the libre BSD systems (FreeBSD, OpenBSD, etc...),
-optional font packages may have to be installed to get the fancy
-text to show correctly. The following fonts are recommended for
-excellent coverage and permissive licensing terms:
-
-1. `Noto <https://www.google.com/get/noto/>`_ 🥇
-
-   * Package name prefixes: ``google-noto-*`` (DNF), ``fonts-noto*``
-     (APT), ``noto-fonts`` (Pacman).
-
-   * Unmatched coverage of both majority and minority scripts at
-     time of writing.
-
-   * SIL Open Font License terms and conditions.
-
-2. `DejaVu Sans <https://dejavu-fonts.github.io/>`_ 🥈
-
-   * Preinstalled on most major GNU/Linux systems.
-
-   * Package name prefixes: ``dejavu-*`` (DNF), ``fonts-dejavu*`` (APT),
-     ``ttf-dejavu*`` (Pacman).
-
-   * Comprehensive coverage second only to Noto at time of writing.
-
-   * `Non-standard but permissive <https://dejavu-fonts.github.io/License.html>`_     terms and conditions.
-
-3. `GNU Unifont <https://unifoundry.com/unifont/index.html>`_ 🥉
-
-   * Package names: ``unifont-fonts.noarch`` (DNF), ``unifont`` (APT),
-     ``bdf-unifont`` (Pacman)
-
-   * Preinstalled and used as the console font on most Debian, Ubuntu
-     and derivative systems.
-
-   * Comprehensive coverage for scripts with isolated graphemes that
-     do not typically rely on combining and overlapping.
-
-   * Aesthetics may appeal to pixel art and retrocomputing fans.
-
-   * GNU GPLv2 (with Font Embedding Exception) terms and conditions,
-     available under SIL Open Font License T&Cs for version 13.0.04 up.
 
 TODO
 ====

@@ -27,6 +27,9 @@ library.
 # NOTE: The original sfunc* functions from the main module are retained
 # in this module for compatibility purposes, and to serve as a historical
 # reference. It will be removed in future releases.
+from warnings import warn
+
+warn('sfunc will be removed soon; use TextProcessor instead', DeprecationWarning)
 
 # Supported Replacement Scopes
 SCOPE_CHAR = 'C'

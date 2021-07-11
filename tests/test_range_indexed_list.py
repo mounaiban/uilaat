@@ -122,12 +122,18 @@ class GetitemTests(TestCase):
     """
     def setUp(self):
         self.bounds = (5,10,15,20,25,30)
+        self.bounds_pt = (5,10,15,15,25,30) # with point
         self.bounds_b2b = (2,4,5,7,8,10) # back-to-back
+        self.bounds_b2b_pt = (2,4,5,5,6,8) # back-to-back with point
         self.bounds_s = (2,3,6,7,9,10) # short ranges
+        self.bounds_s_pt = (2,3,6,6,9,10) # short ranges with point
         self.bounds_s_b2b = (2,3,4,5,6,7) # short ranges, back-to-back
+        self.bounds_s_b2b_pt = (2,3,4,4,6,7) # short ranges, b2b with point
         self.bounds_one = (18,35) # single range
+        self.bounds_one_pt = (18,18) # single point
         self.range_zero_start_one = (0,10)
-        self.range_zero_start_one_s = (0,1)
+        self.range_zero_start_one_s = (0,1) # back-to-back from zero
+        self.range_zero_start_one_pt = (0,0) # single point at zero
 
     def test_getitem(self):
         """
@@ -232,6 +238,20 @@ class GetitemTests(TestCase):
             with self.subTest(k=k):
                 self.assertEqual(ril[k], vals[i//2])
 
+    def test_getitem_short_b2b_pt(self):
+        """
+        Lookups on short, back-to-back ranges with point
+
+        """
+        ks = self.bounds_s_b2b_pt
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        for i in range(len(ks)):
+            k = ks[i]
+            with self.subTest(k=k):
+                self.assertEqual(ril[k], vals[i//2])
+
     def test_getitem_short_b2b_lookuperror(self):
         """
         Out-of-range index handling for short, back-to-back ranges
@@ -247,6 +267,20 @@ class GetitemTests(TestCase):
         with self.assertRaises(LookupError):
             k = ks[-1] + 1
             ril[k]
+
+    def test_getitem_one_pt(self):
+        """
+        Lookups on lone point
+
+        """
+        ks = self.bounds_one_pt
+        vals = [i for i in range(len(ks)//2)]
+        ril = RangeIndexedList(ks, vals)
+
+        for i in range(len(ks)):
+            k = ks[i]
+            with self.subTest(k=k):
+                self.assertEqual(ril[k], vals[i//2])
 
 class InsertTests(TestCase):
     """

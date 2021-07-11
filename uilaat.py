@@ -26,24 +26,23 @@ A mini-library for working with decorative Unicode text
 # Unicode is a registered trademark of Unicode, Inc.
 
 import re
+from bisect import bisect_right
 from functools import reduce
 from json import JSONDecoder
 from os import listdir, path
-from sfunc import sfunc_from_covar, sfunc_from_list, sfunc_from_re, \
-    sfunc_from_dict, SCOPE_CHAR, SCOPE_STR, SCOPE_NOP # TODO: Remove sfunc's
 from warnings import warn
 
 KEY_DB_NAME = '_db_name'
 SUBPOINT = '\ufffc' # Unicode Object Replacement
 SUFFIX_JSON = '.json'
-VERSION = '0.5'
+VERSION = '0.6'
 is_odd = lambda x : x%2 != 0
 
-#
-# There are notes in the comments at the end of this module.
-#
-
 # Helper functions
+# See docs/json-repo-surrogates.rst for an explanation on how these
+# lambdas work
+#
+# TODO: Surrogate functions seem unused, remove?
 #
 utf16_hs = lambda v:((((v & 0x1F0000)>>16)-1)<<6) | ((v & 0xFC00)>>10) | 0xD800
     # get UTF-16 high surrogate ordinal from code point ordinal
@@ -53,6 +52,7 @@ utf16_ls = lambda v:(v&0x3ff) | 0xdc00
     # get UTF-16 low surrogate ordinal code point ordinal
 utf16_ls_c = lambda c: chr(utf16_ls(ord(c)))
     # get low surrogate from character
+
 def surr(c):
     """
     Get UTF-16 surrogate pair for a character
@@ -119,20 +119,34 @@ def dump_page(plane, page):
     warn('dump_page() will be renamed to dump_code_page()', DeprecationWarning)
     return dump_code_page(plane, page)
 
+def key_by_index(d, i, default=None):
+    """
+    Get a key from a dict d of index i, return default if i is out of bounds.
+    key_by_index(d, 0) returns the the first key inserted into d.
+
+    """
+    if not isinstance(i, int):
+        raise TypeError("only int indices are accepted")
+    elif not isinstance(d, dict):
+        raise TypeError("only dicts are supported")
+    elif i >= len(d):
+        return default
+    keys = tuple(d.keys())
+    return keys[i]
+
 # Supplementary Mapping Classes
 #
 class CodePointOffsetLookup:
     """
     A Unicode Code Point offset lookup that mimics a read-only dict.
-    Accepts code point values and returns a single character
-    corresponding to the offset code point.
+    Accepts code points and returns a single character corresponding
+    to the offset code point.
 
     This class is intended for use with str.translate().
 
-    Where:
-    cpol = CodePointOffsetLookup(a, b, off)
+    See __init__ for details on creating a new lookup, and __getitem__
+    for help on using it.
 
-    cpol[x] == chr(x + off)
     """
     def dict(self):
         """
@@ -148,7 +162,15 @@ class CodePointOffsetLookup:
         return out
 
     def __init__(self, start, end, offset):
+        """
+        Creating a CodePointOffsetLookup:
+        cpol = CodePointOffsetLookup(start, end, offset)
 
+        * start is the first code point accepted by the CPOL
+
+        * end is the last code point accepted
+
+        """
         # validate start and end
         if (isinstance(start, int) is False) or (isinstance(end, int) is False):
             raise ValueError('both start and end must be int')
@@ -161,7 +183,7 @@ class CodePointOffsetLookup:
             raise ValueError('offset must be int')
         elif start+offset < 0:
             raise ValueError('offset must not cause negative values to return')
-
+        ###
         self._start = start
         self._end = end
         self._offset = offset
@@ -178,6 +200,16 @@ class CodePointOffsetLookup:
             and (self._offset == other._offset)
 
     def __getitem__(self, key):
+        """
+        Using a CodePointOffsetLookup:
+
+        Given cpol = CodePointOffsetLookup(a, b, off),
+
+        cpol[x] == chr(x + off) if a >= x >= b
+
+        LookupError is raised if x < a or x > b
+
+        """
         # validate key
         if isinstance(key, int) is False:
             raise ValueError('only int keys are supported')
@@ -185,7 +217,6 @@ class CodePointOffsetLookup:
             raise LookupError('requested translation out of range')
         elif key < self._start:
             raise LookupError('requested translation out of range')
-
         out = key + self._offset
         if out < 0:
             raise ValueError('negative code point suppressed')
@@ -202,32 +233,37 @@ class RangeIndexedList:
     This class, when used with int keys, is intended for use with
     str.translate().
 
+    See __init__ for details on creating a new lookup, and __getitem__
+    for help on using it.
+
     """
     DEFAULT_VALUE = True
 
     def __init__(self, bounds, values=None, **kwargs):
         """
         How to create a basic RangeIndexedList:
-        L = RangeIndexedList(keys, values)
+        L = RangeIndexedList(bounds, values)
 
         * bounds is a sorted sequence (list, tuple), of int's that
-          specifiy ranges; zero and even-indexed items specify
-          range starts and odd-indexed items specify range stops.
-          Ranges must not overlap.
+          specifiy ranges; zero and even-indexed elements specify
+          key range starts and odd-indexed items specify key range
+          stops. Ranges must not overlap.
+          Points may be embedded by using the same value for start and
+          stop.
 
-        * values is a sequence of items specifying items to be returned
-          as a result of a lookup. Each item corresponds to a range
-          pair in keys, values[0] is referenced to by all values betwen
-          keys[0] and keys[1], and so on. If there is only one value
-          in values, this item will be shared between all ranges. Thus,
-          there must be exactly one value, or half as many values as
-          bounds.
+        * values is a sequence of items specifying values to be returned
+          as a result of a lookup.
+          Each item in value corresponds to a range pair in keys:
+
+          Given a lookup key k,
+          if bounds[0] <= k <= bounds[1]: k == values[0]
+          if bounds[2] <= k <= bounds[3]: k == values[1]
+
+          and so on...
+
+          Also, len(bounds) == len(values)/2
 
         Accepted keyword arguments:
-
-        * default - when values is None, this value will be returned
-           for all keys falling into any range, if not specified,
-           this argument is set to True.
 
         * copy_key - (bool) if set to True, all instances of the Unicode
            Replacement Character, U+FFFC, in the output will be replaced
@@ -246,6 +282,11 @@ class RangeIndexedList:
         self._values = None
         self._validate = kwargs.get('validate', True)
 
+        # TODO: Default value is deprecated, please use a list with a
+        # single value instead.
+        if self._default:
+            msg = 'default values are deprecated; use single-value lists instead'
+            warn(msg, DeprecationWarning)
         if values is None:
             self._values = [self._default,]
         else:
@@ -304,7 +345,7 @@ class RangeIndexedList:
         else:
             if out is None:
                 return None
-            elif ('\ufffc' in out) and (isinstance(key, int) is True):
+            elif ('\ufffc' in out) and isinstance(key, int):
                 return out.replace('\ufffc', chr(key))
             else:
                 return out
@@ -435,8 +476,9 @@ class RangeIndexedList:
            bounds having an even number of values.
 
         2. The bounds are sorted and non-overlapping; this is determined
-           by ensuring all bounds in ``bounds`` are sorted smallest first,
-           and that there is gap of at least 1 between bounds.
+           by ensuring all bounds in ``bounds`` are sorted smallest first.
+           A start must be at least 1 higher than the last end. An end
+           must be equal or larger than its corresponding start.
 
         3. There is a value for every bound; this is determined by making
            sure ``values`` has either one, or half of the number of values
@@ -459,8 +501,12 @@ class RangeIndexedList:
         t = type(bounds[0])
         i = 1
         for b in bounds[1:]:
-            if b <= bounds[i-1]:
-                msg = 'bounds[{}]: must be larger than the last'.format(i)
+            if i >= 2 and not is_odd(i):
+                if b <= bounds[i-1]:
+                    msg = 'bounds[{}]: range must start after last end'.format(i)
+                    raise ValueError(msg)
+            if b < bounds[i-1]:
+                msg = 'bounds[{}]: cannot be smaller than last value'.format(i)
                 raise ValueError(msg)
             if type(b) != t:
                 msg = 'all values must be of the same type as values[0]'
@@ -486,32 +532,19 @@ class RangeIndexedList:
         greater side of the last range.
 
         """
-        i_len = len(self._bounds)
-        i_start = 0
-        i_end = i_len - 1
-        # PROTIP: binary search
-        if key > self._bounds[i_end]:
-            return (i_len, False)
-        i = i_end // 2
-        while i_end - i_start > 1:
-            i = i_start + ((i_end-i_start) // 2)
-            k_rk = self._bounds[i]
-            if key == k_rk:
-                return (i, True)
-            if key <= k_rk:
-                i_end = i
+        i = bisect_right(self._bounds, key)
+        if i == 0:
+            if key != self._bounds[i]:
+                return (0, False)
             else:
-                i_start = i
-
-        # if key was not found, determine the best index
-        if key > self._bounds[i_start]:
-            return (i_end, (key == self._bounds[i_end]))
+                return (0, True)
+        elif i >= 1:
+            if key != self._bounds[i-1]:
+                return (i, False)
+            else:
+                return (i-1, True)
         else:
-            return (i_start, (key == self._bounds[i_start]))
-            # PROTIP: the final equality check is required because the
-            # search loop above stops running as soon as i_end meets
-            # i_start, missing out on the chance to raise the key found
-            # flag.
+            raise(IndexError, 'unexpected negative index reached')
 
 class TranslationDict(dict):
     """
@@ -570,7 +603,7 @@ class TranslationDict(dict):
             return None
         if SUBPOINT in out:
             keycopy = key
-            if isinstance(key, int) is True:
+            if isinstance(key, int):
                 keycopy = chr(key)
             return out.replace(SUBPOINT, keycopy)
         else:
@@ -581,6 +614,7 @@ class TranslationDict(dict):
         Return a plain dict equivalent to the TranslationDict.
 
         """
+        # TODO: rename to dict() if feasible
         temp = {}
         for k in self.keys():
             temp[k] = self.__getitem__(k)
@@ -664,8 +698,8 @@ class JSONRepo:
         Return a list of translation objects from the currently selected
         repository. Remember to load a database using load_db() first.
         Translation objects may be dict-likes or a two-item list containing
-        [creg, repl,] where creg is a compiled regex, and repl is a string
-        to replace text matching creg.
+        [re, repl,] where re is a compiled regex, and repl is a string
+        to replace text matching re.
 
         Given this translation loaded from a database:
         {'a': '4', 'b':['|3', '\ua7b4', '\U0001d7ab'], 'c':['<', '\U0001f30a']}
@@ -689,30 +723,33 @@ class JSONRepo:
         objects.
 
         """
-        first_dict = TranslationDict({})
-        trans_dicts = [first_dict,]
-        if self.current_db_name is None:
-            return None
-        # Handler Functions
-        #
         # Summary of Handler Function mini-API
-        # Arguments: (k, v)
-        #   k - translation key, v - translation value; k-v pairs are loaded
-        #   from the 'trans' object in a UILAAT JSON translation database
+        # Arguments: (k, v, n, dls, **kwargs)
+        #   k - key: mapping target from JSON translation database
+        #   v - value: mapping replacement from JSON translation database
+        #   n - alternate translation selector
+        #   dls - list of dicts to add the translation to. For
+        #         JSONRepos, this is always trans_dicts.
         #
-        # JSONRepo Instance Variables: dmeta, maketrans, reverse_trans
+        # Optional arguments:
         #   dmeta - 'meta' object of the translation database,
         #   reverse_trans - bool flag to indicate that the translation in the
         #                   database file should be reversed.
         #   maketrans - bool flag to indicate output is for use with
         #               str.translate(); this may have different effects on
-        #               different types of items, but always results in int
+        #               different lookup types, but always results in int
         #               keys being applied.
         #
         # PROTIP: The instance variables are set in the main loop, whose
         #  code begins after the last handler function below.
         #
+        first_dict = TranslationDict({})
+        trans_dicts = [first_dict,]
+        if self.current_db_name is None:
+            return None
+
         def _prep_one_dict(trans_list):
+            # TODO: spin off this function to a class method?
             # Condense a list of translation lookup objects so that all
             # non-regex lookups are combined into a single lookup at index
             # 0 of the list.
@@ -741,112 +778,10 @@ class JSONRepo:
                 out[0][''] = trans_list[0].out_default
             return out
 
-        def _prep_trans(k, v):
-            # String-to-string or int-to-string translation handler
-            v_out = SUBPOINT
-            if isinstance(v, (list, tuple)):
-                if n >= len(v):
-                    v_out = v[0]
-                else:
-                    v_out = v[n]
-            else:
-                v_out = v
-            if maketrans:
-                if isinstance(v, str):
-                    if len(k) == 1:
-                        k = ord(k)
-                    else:
-                        fmt = "{}: multi-char keys unsupported with maketrans"
-                        msg = fmt.format(dmeta[KEY_DB_NAME])
-                        warn(RuntimeWarning, 'msg')
-                    return
-            if reverse_trans:
-                if k == '':
-                    return
-                elif isinstance(v, (list, tuple)):
-                    for item in v:
-                        trans_dicts[0][item] = k
-                else:
-                    trans_dicts[0][v_out] = k
-            else:
-                trans_dicts[0][k] = v_out
-
-        def _prep_trans_ril(k, v):
-            # Code Point Range Translation handler
-            #
-            # Translation Database format summary
-            #  trans: [[ba1,ba2,...], [va1,va2,...]]
-            #  name: CODE_RANGE + ' ' + trans_name
-            #  Please see top of class for CODE_RANGE definition
-            #  DB entry: {name: trans}
-            #  multi-trans DB entry: {name: [trans1, trans2, ...]}
-
-            # PROTIP: k only contains the name of the translation
-            if reverse_trans:
-                fmt = "{}: reverse range translations unsupported"
-                msg = fmt.format(dmeta[KEY_DB_NAME])
-                warn(RuntimeWarning, msg)
-                return
-            it = n
-            if isinstance(v[0][0], (list, tuple)):
-                # handle alternate translations
-                if n > len(v):
-                    it = 0
-                bs = v[it][0]
-                vs = v[it][1]
-            else:
-                bs = v[0]
-                vs = v[1]
-            ril = RangeIndexedList(bs, vs, copy_key=True)
-            trans_dicts.append(ril)
-
-        def _prep_trans_cpoff(k, v):
-            # Code Point Offset translation handler
-            it = n
-            if isinstance(v[0], list):
-                # handle alternate translations
-                if n > len(v):
-                    it = 0
-                args = v[it]
-            else:
-                args = v
-
-            if reverse_trans:
-                offset_tmp = args[2]
-                start = offset_tmp + args[0]
-                end = offset_tmp + args[1]
-                offset = -offset_tmp
-            else:
-                start = args[0]
-                end = args[1]
-                offset = args[2]
-            cpoff = CodePointOffsetLookup(start, end, offset)
-            trans_dicts.append(cpoff)
-
-        def _prep_trans_regex(k, v):
-            # Regex handler
-            if reverse_trans:
-                fmt = "{}: reverse regex translations unsupported"
-                msg = fmt.format(dmeta[KEY_DB_NAME])
-                warn(RuntimeWarning, msg)
-                return
-            it = n
-            if isinstance(v[0], list):
-                # handle alternate translations
-                if n > len(v):
-                    it = 0
-                args = v[it]
-            else:
-                args = v
-            rege = re.compile(args[0])
-            repl = args[1]
-            out = [rege, repl]
-            trans_dicts.append(out)
-
         handlers_k = {
-            self.CODE_OFFSET: _prep_trans_cpoff,
-            self.CODE_RANGE: _prep_trans_ril,
-            self.CODE_REGEX: _prep_trans_regex,
+            self.CODE_OFFSET: self._prep_mapping_cpoff,
+            self.CODE_RANGE: self._prep_mapping_ril,
+            self.CODE_REGEX: self._prep_mapping_regex,
         }
         ### End of Helper Functions ###
 
@@ -864,16 +799,163 @@ class JSONRepo:
                 warn(msg, DeprecationWarning)
             for k in dtrans.keys():
                 if k == '':
-                    handler = _prep_trans
+                    handler = self._prep_mapping
                 elif isinstance(k, str):
-                    handler = handlers_k.get(k[0], _prep_trans)
+                    handler = handlers_k.get(k[0], self._prep_mapping)
                 else:
-                    handler = _prep_trans
-                handler(k, dtrans[k])
-        if one_dict is True:
+                    handler = self._prep_mapping
+                handler(
+                    k, dtrans[k], n, trans_dicts, maketrans=maketrans,
+                    reverse_trans=reverse_trans
+                )
+        if one_dict:
             return _prep_one_dict(trans_dicts)
         else:
             return trans_dicts
+
+    def _prep_mapping(self, k, v, n, dls, **kwargs):
+        """
+        String-to-string or int-to-string mapping handler
+        k is the input string, v is the output; only single-char inputs
+        are supported at the moment
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        maketrans = kwargs.get('maketrans', False)
+        v_out = SUBPOINT
+        if isinstance(v, (list, tuple)):
+            if n >= len(v):
+                v_out = v[0]
+            else:
+                v_out = v[n]
+        else:
+            v_out = v
+        if maketrans:
+            if isinstance(v, str):
+                if len(k) == 1:
+                    k = ord(k)
+                else:
+                    fmt = "{}: multi-char keys unsupported with maketrans"
+                    msg = fmt.format(dmeta[KEY_DB_NAME])
+                    warn(RuntimeWarning, 'msg')
+                return
+        if reverse_trans:
+            if k == '':
+                return
+            elif isinstance(v, (list, tuple)):
+                for item in v:
+                    dls[0][item] = k
+            else:
+                dls[0][v_out] = k
+        else:
+            dls[0][k] = v_out
+
+
+    def _prep_mapping_cpoff(self, k, v, n, dls, **kwargs):
+        """
+        Code Point Offset mapping handler
+        k is the name of the mapping, like "\uf811 aesthetic"
+        v is the definition of the offset lookup, like:
+        [s, e, off] => s: start code point, e: end code point, off: offset
+        when offering alternate mappings, wrap everything in an
+        outer array like: [[s0, e0, off0], ... [sN, eN, offN]]
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        it = n
+        if isinstance(v[0], list):
+            # handle alternate translations
+            if n > len(v):
+                it = 0
+            args = v[it]
+        else:
+            args = v
+
+        if reverse_trans:
+            offset_tmp = args[2]
+            start = offset_tmp + args[0]
+            end = offset_tmp + args[1]
+            offset = -offset_tmp
+        else:
+            start = args[0]
+            end = args[1]
+            offset = args[2]
+        cpoff = CodePointOffsetLookup(start, end, offset)
+        dls.append(cpoff)
+
+    def _prep_mapping_regex(self, k, v, n, dls, **kwargs):
+        """
+        Regex handler
+        k is the name of the mapping, like "\uf812 aesthetic"
+        v is a definition like [re, s], re is a regular expression matching
+        target text, s is its replacement string
+
+        when offering alternate mappings, wrap everything in outer
+        arrays like:
+        [[re0, s0]...[reN, sN]]
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        if reverse_trans:
+            fmt = "{}: reverse regex translations unsupported"
+            msg = fmt.format(dmeta[KEY_DB_NAME])
+            warn(RuntimeWarning, msg)
+            return
+        it = n
+        if isinstance(v[0], list):
+            # handle alternate mappings
+            if n > len(v):
+                it = 0
+            args = v[it]
+        else:
+            args = v
+        rege = re.compile(args[0])
+        repl = args[1]
+        out = [rege, repl]
+        dls.append(out)
+
+    def _prep_mapping_ril(self, k, v, n, dls, **kwargs):
+        """
+        Code Point Range Mapping handler
+
+        k is the name of the mapping, like "\uf813 aesthetic"
+        v is the definition of the offset lookup, like:
+        [s0,e0..,sN,eN],[r0...,rN]
+        s: : start target code point range, e: end code point range,
+        r: replacement code point.
+        There must be either a correspoinding r-value for each s,e pair,
+        or a single r-value.
+
+        when offering alternate mappings, wrap everything in outer
+        arrays like:
+        [[[s0A,e0A...sNA,eNA],[r0A...rNA]],[[[s0B,e0B...sNB,eNB],[r0B...rNB]]]
+
+        Please see get_trans() for info on the other arguments
+        """
+        reverse_trans = kwargs.get('reverse_trans', False)
+        if reverse_trans:
+            # TODO: Code point ranges are actually easily
+            # reversed... maybe implement a reverse method, or
+            # even check if the reversal method has been implemented?
+            fmt = "{}: reverse range translations unsupported"
+            msg = fmt.format(dmeta[KEY_DB_NAME])
+            warn(RuntimeWarning, msg)
+            return
+        it = n
+        if isinstance(v[0][0], (list, tuple)):
+            # handle alternate mappings
+            if n > len(v):
+                it = 0
+            bs = v[it][0]
+            vs = v[it][1]
+        else:
+            bs = v[0]
+            vs = v[1]
+        ril = RangeIndexedList(bs, vs, copy_key=True)
+        dls.append(ril)
 
     def _set_repo_dir(self, rdpath):
         db_names = self.list_trans(rdpath)
@@ -925,20 +1007,28 @@ class JSONRepo:
         else:
             raise ValueError('invalid option for incl= argument')
 
-    def load_db(self, db_name):
-        # TODO: Change to load_trans() to be more intuitive for
-        # future support for other DBMS (e.g. SQL, MongoDB, OrientDB...)
-        # that can store multiple translations per database
+    def load_db(self, name):
         """
-        Loads a database file from the repository.
+        An alias for _load_trans() on JSONRepo.
+
+        JSONRepo files contain only one database per file.
+
+        """
+        self._load_trans(name)
+
+    def _load_trans(self, name):
+        """
+        Links the JSONRepo to a translation file. Returns None.
 
         Where:
         jr = JSONRepo('trans')
 
         jr.load_db('aesthetic2')
-        loads the 'aesthetic2' database from the 'trans' repository
+        links the 'aesthetic2' translation file from the 'trans'
+        repository, importing other files linked with the 'trans-include'
+        keyword as necessary.
 
-        This method launches the recursive loading process, and performs
+        This method launches the recursive linking process, and performs
         the necesary cleanups that must be excluded from the recursive
         loading process.
 
@@ -950,49 +1040,49 @@ class JSONRepo:
         self._filename_memo.clear()
         self.current_db_name = None
         try:
-            self._do_load_db(db_name)
-            self.current_db_name = db_name
+            self._do_load_trans(name)
+            self.current_db_name = name
         finally:
             if self._fh is not None:
                 self._fh.close()
                 self._fh = None
 
-    def _do_load_db(self, db_name):
+    def _do_load_trans(self, name):
         """
         Performs the recursive process of reading in data from a database
         files, together with other inclusion-referenced database files.
         The results are cached in self._tmp.
 
-        This method is intended to be called from load_db() only.
+        This method is intended to be called from load_trans() only.
 
         """
-        tmp_path = self._get_db_path(db_name)
+        tmp_path = self._get_db_path(name)
         if self._fh is not None:
             self._fh.close()
         self._fh = open(tmp_path, mode='r', encoding='utf-8')
         jd = JSONDecoder()
         tmp_dict = jd.decode(self._fh.read())
         # insert runtime metadata
-        tmp_dict['meta'][KEY_DB_NAME] = db_name
+        tmp_dict['meta'][KEY_DB_NAME] = name
         ##
         self._tmp.insert(0, tmp_dict)
-        self._filename_memo.insert(0, db_name)
+        self._filename_memo.insert(0, name)
         incs = self._tmp[0].get('trans-include', [])
         if len(incs) > 0:
             for e in incs:
-                if e == db_name:
+                if e == name:
                     fmt = 'trans-include: {}: cannot include self'
-                    msg = fmt.format(db_name)
+                    msg = fmt.format(name)
                     warn(msg, RuntimeWarning)
                 elif e in self._filename_memo:
                     fmt = 'trans-include: {} to {}: inclusion loop detected'
-                    msg = fmt.format(db_name, e)
+                    msg = fmt.format(name, e)
                     warn(msg, RuntimeWarning)
                 else:
-                    self._do_load_db(e)
+                    self._do_load_trans(e)
 
-    def _get_db_path(self, db_name):
-        filename = db_name + SUFFIX_JSON
+    def _get_db_path(self, name):
+        filename = name + SUFFIX_JSON
         return path.join(self._repo_dir, filename)
 
     def _dump_trans(self, full=False):
@@ -1001,13 +1091,6 @@ class JSONRepo:
         # in full. Alternate dictionaries will only contain differences
         # from the first.
         raise NotImplementedError
-
-    def _str_to_keys(self, s):
-        # Convert specially-formatted string into key list for creating
-        # CodePointOffsetLookup and RangeIndexedList objects.
-        if isinstance(s, str):
-            if ord(s[0]) & 0xF800 == 0xF800:
-                return s.split(' ')[1:]
 
 
 # TextProcessor Class
@@ -1106,32 +1189,32 @@ class TextProcessor:
 
     def add_trans_ops(self, k, p=None):
         """
-        Add a translation stage, k, to the operation list,
-        self.trans_ops_list. The argument k may be a name of a translation
-        dictionary in self.trans_dicts, or an integer index representing
-        the k-th dictionary added to the TP.
+        Add a translation k, to the translation operations list,
+        self.trans_ops_list. This list contains keys referencing translations
+        in self.trans_dicts. Translations will be applied as ordered in this
+        list when translate() is used.
 
-        Optionally, the position p of the new translation may be specified.
-        The translation will be added before position p. If p is not specified,
-        the translation will be added at the end of the list.
+        The argument k may be a name of a translation in self.trans_dicts,
+        or its integer index. If integer indices are used, if k==0 references
+        the first key in self.trans_dicts.keys().
+
+        Optionally, the ordinal p of the new translation may be specified.
+        The translation will be added before position p. By default,
+        translations are added to the end of the list.
 
         The same translation can occur more than once on the list.
 
-        This list contains the names of translation dictionaries added to
-        the TP with add_trans_dict(). Translations named self.trans_ops_list
-        will be applied with translate() as ordered in the list, unless
-        overridden.
-
         """
-        dict_names = list(self.trans_dicts.keys())
         if p is None:
             p = len(self.trans_ops_list)
         if isinstance(k, int):
-            dname = dict_names[k]
+            dname = key_by_index(self.trans_dicts, k)
             self.trans_ops_list.insert(p, dname)
         elif isinstance(k, str):
-            if k in dict_names:
+            if k in self.trans_dicts:
                 self.trans_ops_list.insert(p, k)
+            # TODO: Should invalid keys/names be ignored,
+            # or should they raise exceptions?
 
     def clear_trans(self):
         self.trans_dicts.clear()
@@ -1246,26 +1329,22 @@ class TextProcessor:
         self.trans_dicts, while indices refer to the n-th dictionary added.
 
         """
-        def do_lup(i):
-            # Return a name in self.trans_dicts from a numerical index;
-            # do_lup(0) returns the name of the first dict in trans_dicts.
-            dict_names = list(self.trans_dicts.keys())
-            if isinstance(i, int):
-                return dict_names[i]
-            else:
-                return x
-
         if len(order) == 0:
             olist = self.trans_ops_list
         else:
-            m = map(do_lup, order)
-            olist = [s for s in m]
+            olist = [key_by_index(self.trans_dicts, i) for i in order]
 
         out = s
         for tn in olist:
-            tdict = self.trans_dicts[tn][0]
-            # TODO: regex preprocessing translations are still not applied,
-            # need to implement them
+            tdata = self.trans_dicts[tn]
+            if len(tdata) > 1:
+                # handle regex preprocessing if defined
+                for p in tdata[1:]:
+                    if type(p[0]) is re.Pattern:
+                        out = (p[0]).sub(p[1],out)
+
+            # now handle lookup-based translations
+            tdict = tdata[0]
             if self.meta[tn].get('reverse-out', False):
                 # handle reversed output
                 tmp_rev = ''
@@ -1275,22 +1354,4 @@ class TextProcessor:
             else:
                 out = out.translate(tdict)
         return out
-
-# Important Information
-# ---------------------
-#
-# Substitution Points (SP's)
-# ==========================
-# SPs are intended to be a platform-agnostic method of including
-# characters matched by a dictionary key or regular expression into the
-# default translation output. They are indicated by U+FFFC.
-# (See also: Unicode Standard, Section 23.8)
-#
-# In an example default substitution:
-#
-# dict: {'':'\ufffc\u2e04'}
-# code points: U+FFFC + U+2E04
-# input: 'J'
-# output: 'J' + U+2E04
-#
 
