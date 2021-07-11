@@ -345,7 +345,7 @@ class RangeIndexedList:
         else:
             if out is None:
                 return None
-            elif ('\ufffc' in out) and (isinstance(key, int) is True):
+            elif ('\ufffc' in out) and isinstance(key, int):
                 return out.replace('\ufffc', chr(key))
             else:
                 return out
@@ -603,7 +603,7 @@ class TranslationDict(dict):
             return None
         if SUBPOINT in out:
             keycopy = key
-            if isinstance(key, int) is True:
+            if isinstance(key, int):
                 keycopy = chr(key)
             return out.replace(SUBPOINT, keycopy)
         else:
@@ -808,7 +808,7 @@ class JSONRepo:
                     k, dtrans[k], n, trans_dicts, maketrans=maketrans,
                     reverse_trans=reverse_trans
                 )
-        if one_dict is True:
+        if one_dict:
             return _prep_one_dict(trans_dicts)
         else:
             return trans_dicts
