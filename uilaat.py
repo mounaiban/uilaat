@@ -35,7 +35,7 @@ from warnings import warn
 KEY_DB_NAME = '_db_name'
 SUBPOINT = '\ufffc' # Unicode Object Replacement
 SUFFIX_JSON = '.json'
-VERSION = '0.5'
+VERSION = '0.6'
 is_odd = lambda x : x%2 != 0
 
 # Helper functions
