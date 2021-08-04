@@ -51,7 +51,7 @@ Working Out Surrogate Pairs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The method of obtaining surrogate pairs was specified in the *Unicode
 Standard Core Specification*, section 3.9, D91. This method is intended
-for code points ``U+10000`` to ``U+100000`` inclusive only.
+for code points ``U+10000`` to ``U+10FFFF`` inclusive only.
 
 1. Split the code point value (herein named ``v``) between high and
    low surrogates.  Work with the value as a binary number.
